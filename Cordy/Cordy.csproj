@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <StartupObject>Cordy.Program</StartupObject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>1701;1702;0436;1071</NoWarn>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Parser\CordyParser.cs" />
+    <Compile Remove="Parser\CordyPreParser.cs" />
+    <Compile Remove="Parser\PreParserDefinition.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="libLLVM" Version="8.0.0" />
+    <PackageReference Include="libLLVM.runtime.win-x64" Version="8.0.0" />
+    <PackageReference Include="libLLVM.runtime.win-x86" Version="8.0.0" />
+    <PackageReference Include="LLVMSharp" Version="5.0.0" />
+    <PackageReference Include="Microsoft.NETCore.App" Version="3.0.0-preview7-27912-14">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>none</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>
