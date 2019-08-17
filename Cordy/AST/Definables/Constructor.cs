@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Cordy.AST.Nodes.Definables
+namespace Cordy.AST
 {
     [Obsolete("Constructors not done yet")]
     public class Constructor : DefinedNode

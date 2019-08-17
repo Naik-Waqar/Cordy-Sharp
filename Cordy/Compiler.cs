@@ -1,7 +1,9 @@
 ﻿using Cordy.AST;
+using Cordy.Codegen;
 using Llvm.NET;
 using Llvm.NET.DebugInfo;
 using Llvm.NET.Instructions;
+using Llvm.NET.Interop;
 using Llvm.NET.Transforms;
 using Llvm.NET.Types;
 using Llvm.NET.Values;
@@ -11,13 +13,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
-using Llvm.NET.Interop;
-
 namespace Cordy
 {
-    using Module = BitcodeModule;
     using IRBuilder = InstructionBuilder;
-    using DIBuilder = DebugInfoBuilder;
+    using Module = BitcodeModule;
 
     internal static class Compiler
     {
@@ -188,7 +187,7 @@ namespace Cordy
 
             var passManager = InitPassManager(module);
 
-            var listener = new CodegenListener(passManager, new CodegenVisitor(module, builder, context, type.FullName));
+            var listener = new Listener(passManager, new Visitor(module, builder, context, type.FullName));
 
             var lexer = new Lexer();
             lexer.Prepare(type); //tokenizing code
@@ -204,15 +203,9 @@ namespace Cordy
 
         #region
 
-        internal static ITypeRef GetTypeByName(string name)
-        {
-            throw new NotImplementedException();
-        }
+        internal static ITypeRef GetTypeByName(string name) => throw new NotImplementedException();
 
-        internal static Operator GetOperator(string value)
-        {
-            throw new NotImplementedException();
-        }
+        internal static Operator GetOperator(string value) => throw new NotImplementedException();
 
         #endregion
     }

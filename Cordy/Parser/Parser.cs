@@ -1,25 +1,24 @@
 ﻿using Cordy.AST;
+using Cordy.Codegen;
 using System;
 using System.Collections.Generic;
 
 namespace Cordy
 {
+    //TODO: Comment all this stuff
     public class Parser : CompilerPart
     {
         private Lexer Lexer;
-        private BaseParserListener Listener;
+        private Listener Listener;
 
-        internal Parser(CordyType type, Lexer lexer, CodegenListener listener)
+        internal Parser(CordyType type, Lexer lexer, Listener listener)
         {
             Type = type;
             Lexer = lexer;
-            Listener = new BaseParserListener(listener);
+            Listener = listener;
         }
 
-        public Parser(Lexer lexer)
-        {
-            Lexer = lexer;
-        }
+        public Parser(Lexer lexer) => Lexer = lexer;
 
         private CordyType Type;
 
@@ -51,6 +50,8 @@ namespace Cordy
         {
             ClearConsumables();
 
+            //TODO: Use exceptions for error handling
+            //TODO: Move switch to separate method
             while (true)
             {
                 switch (Lexer.Next().Type)
@@ -370,8 +371,7 @@ namespace Cordy
             return true;
         }
 
-        public bool HandleIndexerDefinition()
-        {
+        public bool HandleIndexerDefinition() =>
             //Listener.EnterRule("HandleIndexerDefinition");
             ////var i = ParseIndexer();
             //object i = null;
@@ -384,11 +384,9 @@ namespace Cordy
             //    return false;
             //}
             //return true;
-            return false;
-        }
+            false;
 
-        public bool HandleConstructorDefinition()
-        {
+        public bool HandleConstructorDefinition() =>
             //Listener.EnterRule("HandleConstructorDefinition");
             ////var c = ParseConstructor();
             //object c = null;
@@ -401,11 +399,9 @@ namespace Cordy
             //    return false;
             //}
             //return true;
-            return false;
-        }
+            false;
 
-        public bool HandleEventDefinition()
-        {
+        public bool HandleEventDefinition() =>
 
             //Listener.EnterRule("HandleEventDefinition");
             ////var e = ParseEvent();
@@ -419,8 +415,7 @@ namespace Cordy
             //    return false;
             //}
             //return true;
-            return false;
-        }
+            false;
         #endregion
 
         #region Parsing
@@ -914,10 +909,7 @@ namespace Cordy
             return args;
         }
 
-        private Property ParseProperty()
-        {
-            throw new NotImplementedException();
-        }
+        private Property ParseProperty() => throw new NotImplementedException();
 
         #endregion
     }

@@ -1,4 +1,5 @@
 ﻿using Cordy.AST;
+using Cordy.Codegen;
 using System.Collections.Generic;
 
 namespace Cordy
@@ -10,7 +11,7 @@ namespace Cordy
         {
         }
 
-        protected internal override BasicNode Accept(ExprVisitor visitor)
+        protected internal override BasicNode Accept(Visitor visitor)
             => visitor.VisitReturnBlock(this);
     }
 }

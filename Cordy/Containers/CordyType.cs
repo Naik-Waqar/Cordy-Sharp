@@ -116,10 +116,7 @@ namespace Cordy
             Namespace = n;
         }
 
-        internal void Build(Context context)
-        {
-            Compiler.Build(this, context);
-        }
+        internal void Build(Context context) => Compiler.Build(this, context);
     }
 
     public enum eTypeContext

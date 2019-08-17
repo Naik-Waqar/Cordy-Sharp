@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Cordy.Codegen;
+using System.Collections.Generic;
 
 namespace Cordy.AST
 {
@@ -7,16 +8,13 @@ namespace Cordy.AST
     /// </summary>
     public class ExprBlock : CodeBlock
     {
-        public ExprBlock(List<ExprNode> exprs, int indent) : base(null, indent)
-        {
-            Expressions = exprs;
-        }
+        public ExprBlock(List<ExprNode> exprs, int indent) : base(null, indent) => Expressions = exprs;
 
         public List<ExprNode> Expressions { get; }
 
         public override eNodeKind Kind { get; protected set; }
 
-        protected internal override BasicNode Accept(ExprVisitor visitor)
+        protected internal override BasicNode Accept(Visitor visitor)
             => visitor.VisitExprBlock(this);
     }
 }

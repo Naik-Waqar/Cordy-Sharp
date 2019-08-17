@@ -294,7 +294,7 @@ namespace Cordy
                     new Regex(@"[<,>=!#%^?.:&*\-+\\$\/_~]{1,3}",
                         RegexOptions.Compiled)
                 },
-                    #endregion  
+                    #endregion
 
                     #region Brackets
                 {
@@ -356,7 +356,7 @@ namespace Cordy
             };
 
             var start = I;
-            bool undone = true;
+            var undone = true;
             while (Current.Type != eLexemType.EOF && I < Lexems.Count && undone)
             {
                 var b = InvertBracket(Current.Value[0]);
@@ -441,7 +441,7 @@ namespace Cordy
         private string tokenized => Text[0..(I + (I < Text.Length ? 1 : 0))];
         private char now => Text[I];
 
-        CordyType Type;
+        private CordyType Type;
 
         public override string Stage { get; } = "Lexer";
 
