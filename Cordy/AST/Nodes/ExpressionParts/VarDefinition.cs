@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Cordy.AST
+﻿namespace Cordy.AST
 {
     public class VarDefinition : VarNode
     {

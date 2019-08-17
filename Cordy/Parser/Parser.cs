@@ -58,11 +58,21 @@ namespace Cordy
                     case eLexemType.EOF:
                         return true;
 
+                    case eLexemType.Key_Include:
+                        Lexer.Next();
+                        if (Current.Type != eLexemType.String)
+                        {
+                            Error("'include' operator requires a string as it's argument");
+                            Lexer.SkipToEOL();
+                            continue;
+                        }
+
+                        continue;
 
                     #region Parameter
                     // ^{Parameter}^
-                    // ^{Parameter} 
-                    //  {Parameter} 
+                    // ^{Parameter}
+                    //  {Parameter}
                     case eLexemType.CurlyBracketOpen:
                         ParseParameter();
                         continue;
@@ -70,8 +80,8 @@ namespace Cordy
 
                     #region Attribute
                     // ^[Attribute]^
-                    // ^[Attribute] 
-                    //  [Attribute] 
+                    // ^[Attribute]
+                    //  [Attribute]
                     case eLexemType.SquareBracketOpen:
                         ParseAttribute();
                         continue;
@@ -714,7 +724,7 @@ namespace Cordy
         {
             /*\ Block |>
             [•] InitVariableExpr
-            [•] ClearVariable 
+            [•] ClearVariable
             [•] ParenExpr
             [•] IdentifierExpr
             [•] PrefixUnaryExpr

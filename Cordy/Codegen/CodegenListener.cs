@@ -1,21 +1,26 @@
 ﻿using Cordy.AST;
-using LLVMSharp;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using Llvm.NET.JIT;
+using Llvm.NET.Transforms;
+using Llvm.NET.Values;
 
 namespace Cordy
 {
     class CodegenListener : iParserListener
     {
-        private LLVMExecutionEngineRef Engine;
-        private LLVMPassManagerRef Manager;
+        private IExecutionEngine Engine;
+        private FunctionPassManager FunctionPassManager;
         private CodegenVisitor Visitor;
 
-        public CodegenListener(LLVMExecutionEngineRef engine, LLVMPassManagerRef passManager, CodegenVisitor codegenVisitor)
+        public CodegenListener(FunctionPassManager passManager, CodegenVisitor codegenVisitor)
+        {
+            FunctionPassManager = passManager;
+            Visitor = codegenVisitor;
+        }
+
+        public CodegenListener(IExecutionEngine engine, FunctionPassManager passManager, CodegenVisitor codegenVisitor)
         {
             Engine = engine;
-            Manager = passManager;
+            FunctionPassManager = passManager;
             Visitor = codegenVisitor;
         }
 
@@ -25,9 +30,9 @@ namespace Cordy
         public void ExitHandleFunctionDefinition(Function data)
         {
             Visitor.Visit(data);
-            var func = Visitor.Stack.Pop();
+            var func = (IrFunction)Visitor.Stack.Pop();
 
-            LLVM.RunFunctionPassManager(Manager, func);
+            FunctionPassManager.Run(func);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using LLVMSharp;
+﻿using Llvm.NET;
 using System.Collections.Generic;
 using System.IO;
 
@@ -48,9 +48,9 @@ namespace Cordy
 
             for (var i = 0; i < Types.Count; i++)
             {
-                var context = LLVM.ContextCreate();
+                var context = new Context();
                 Types[i].Build(context);
-                context.ContextDispose();
+                context.Dispose();
             }
         }
     }

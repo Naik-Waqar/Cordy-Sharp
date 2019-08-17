@@ -20,7 +20,7 @@ namespace Cordy.AST
 
         public override eNodeKind Kind { get; protected set; }
 
-        protected internal override BasicNode Accept(ExprVisitor visitor) 
+        protected internal override BasicNode Accept(ExprVisitor visitor)
             => visitor.VisitExpression(this);
     }
 }

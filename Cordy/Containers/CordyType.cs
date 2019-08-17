@@ -1,4 +1,7 @@
-﻿using LLVMSharp;
+﻿using Llvm.NET;
+using Llvm.NET.Instructions;
+using Llvm.NET.ObjectFile;
+using Llvm.NET.Types;
 using System.Collections.Generic;
 using System.IO;
 
@@ -77,23 +80,29 @@ namespace Cordy
         /// <summary>
         /// Reference to LLVM module
         /// </summary>
-        public LLVMModuleRef Module { get; private set; }
+        public BitcodeModule Module { get; private set; }
 
         /// <summary>
         /// Reference to defined LLVM type
         /// </summary>
-        public LLVMTypeRef LLVMType { get; private set; }
+        public ITypeRef LLVMType { get; private set; }
 
         /// <summary>
         /// Associated IRBuilder
         /// </summary>
-        public LLVMBuilderRef IRBuilder { get; private set; }
+        public InstructionBuilder IRBuilder { get; private set; }
 
         #endregion
 
-        public List<Lexem> Includes { get; } = new List<Lexem>();
+        /// <summary>
+        /// Stores all modules loaded by include deirctives
+        /// </summary>
+        public List<TargetObjectFile> LoadedIncludes { get; } = new List<TargetObjectFile>();
 
-        public List<string> Renames { get; } = new List<string>();
+        /// <summary>
+        /// Macroses defined in file
+        /// </summary>
+        public Dictionary<string, ITypeRef> Macros { get; } = new Dictionary<string, ITypeRef>();
 
         /// <summary>
         /// Creates new instance of <see cref="CordyType"/> class
@@ -107,7 +116,7 @@ namespace Cordy
             Namespace = n;
         }
 
-        internal void Build(LLVMContextRef context)
+        internal void Build(Context context)
         {
             Compiler.Build(this, context);
         }

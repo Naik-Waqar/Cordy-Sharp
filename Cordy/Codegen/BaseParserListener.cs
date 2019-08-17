@@ -1,8 +1,7 @@
-﻿using System;
+﻿using Cordy.AST;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Cordy.AST;
-using LLVMSharp;
 
 namespace Cordy
 {
@@ -37,8 +36,8 @@ namespace Cordy
 
         internal void Listen()
         {
-            if (Listener!=null)
-                while(ascentStack.Count > 0)
+            if (Listener != null)
+                while (ascentStack.Count > 0)
                 {
                     var context = ascentStack.Pop();
                     context.MethodInfo.Invoke(context.Instance, new object[] { context.Arg });

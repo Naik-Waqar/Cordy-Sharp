@@ -1,16 +1,25 @@
 ﻿using Cordy.AST;
-using LLVMSharp;
+using Llvm.NET;
+using Llvm.NET.DebugInfo;
+using Llvm.NET.Instructions;
+using Llvm.NET.Types;
+using Llvm.NET.Values;
 using System;
 using System.Collections.Generic;
 
 namespace Cordy
 {
+    using DIBuilder = DebugInfoBuilder;
+    using IRBuilder = InstructionBuilder;
+    using Module = BitcodeModule;
+
     internal class CodegenVisitor : ExprVisitor
     {
 
-        private LLVMModuleRef Module;
-        private LLVMBuilderRef Builder;
-        private LLVMContextRef Context;
+        private Module Module;
+        private IRBuilder IRBuilder;
+        private DIBuilder DIBuilder;
+        private Context Context;
 
         #region Logging
         public override string Stage { get; } = "CodeGen";
@@ -19,28 +28,21 @@ namespace Cordy
 
         #endregion
 
-        #region Constants
-
-        private static readonly LLVMBool False = new LLVMBool(0);
-        private static readonly LLVMValueRef nil = new LLVMValueRef(IntPtr.Zero);
-
-        #endregion
-
         #region Values
 
-        private readonly List<Dictionary<string, LLVMValueRef>> namedValues = new List<Dictionary<string, LLVMValueRef>>();
+        private readonly List<Dictionary<string, Value>> namedValues = new List<Dictionary<string, Value>>();
 
-        public Stack<LLVMValueRef> Stack { get; } = new Stack<LLVMValueRef>();
+        public Stack<Value> Stack { get; } = new Stack<Value>();
 
         private int Depth;
 
         #endregion
 
-        public CodegenVisitor(LLVMModuleRef module, LLVMBuilderRef builder, LLVMContextRef context, string filename)
+        public CodegenVisitor(Module module, IRBuilder builder, Context context, string filename)
         {
             Context = context;
             Module = module;
-            Builder = builder;
+            IRBuilder = builder;
             FileName = filename;
         }
 
@@ -48,20 +50,20 @@ namespace Cordy
 
         protected internal override BasicNode VisitInteger(IntegerNode node)
         {
-            Stack.Push(LLVM.ConstInt(LLVM.Int64Type(), node.Value, node.Signed));
+            Stack.Push(Context.CreateConstant(Context.Int32Type, node.Value, node.Signed));
             return node;
         }
 
         protected internal override BasicNode VisitFloat(FloatNode node)
         {
-            Stack.Push(LLVM.ConstReal(LLVM.DoubleType(), node.Value));
+            Stack.Push(Context.CreateConstant(node.Value));
             return node;
         }
 
         protected internal override BasicNode VisitReturnBlock(ReturnBlock block)
         {
             Visit(block.Childs[0]);
-            LLVM.BuildRet(Builder, Stack.Pop());
+            IRBuilder.Return(Stack.Pop());
             return block;
         }
 
@@ -82,46 +84,47 @@ namespace Cordy
         protected internal override BasicNode VisitPrototype(Definition node)
         {
             var count = node.Args.Count;
-            var args = new LLVMTypeRef[Math.Max(count, 1)];
-            var func = LLVM.GetNamedFunction(Module, node.Name);
+            var args = new ITypeRef[count];
 
-            if (func.Pointer != IntPtr.Zero)
+            var func = Module.GetFunction(node.Name);
+            if (func != null)
             {
-                if (LLVM.CountBasicBlocks(func) != 0)
+                if (func.BasicBlocks.Count != 0) //TODO: allow redefines
                 {
                     Error($"Member '{node.Name}' redefined");
                     return null;
                 }
-                if (LLVM.CountParams(func) != count)
+                if (func.Parameters.Count != count)
                 {
                     Error($"Member '{node.Name}' redefined with another count of args");
+                    return null;
                 }
             }
             for (var i = 0; i < count; i++)
             {
                 if (node.Args[i].Type.Template?.Count != 0)
                     Error($"Generic types aren't done yet. Result can differ from expectations");
-                var t = Compiler.GetTypeByName(Module, node.Args[i].Type.Name);
-                if (t.Pointer == IntPtr.Zero)
+                var t = Compiler.GetTypeByName(node.Args[i].Type.Name); //TODO: Make generics
+                if (t != null)
                 {
                     Error($"Unknown type '{node.Args[i].Type.Name}'");
                     return null;
                 }
-                args[i + 1] = t;
+                args[i] = t;
             }
-            args[0] = LLVM.Int32TypeInContext(Context);
+            //var rtype = Compiler.GetTypeByName(node.Type?.Name);
+            var rtype = Context.Int32Type;
             //TODO: Apply storage modifiers
             //TODO: Get return type
             //TODO: Create different types of definitions
-            func = LLVM.AddFunction(Module, node.Name, LLVM.FunctionType(LLVM.Int32Type(), args, False));
-            LLVM.SetLinkage(func, LLVMLinkage.LLVMExternalWeakLinkage);
+            func = Module.AddFunction(node.Name, Context.GetFunctionType(rtype, args, false));
+            //func.Linkage(Linkage.);
 
             for (var i = 0; i < node.Args.Count; i++)
             {
                 var name = node.Args[i].Name;
-                var p = LLVM.GetParam(func, (uint)i);
-                LLVM.SetValueName(p, name);
-                namedValues[Depth][name] = p;
+                func.Parameters[i].Name = name;
+                namedValues[Depth][name] = func.Parameters[i];
             }
 
             Stack.Push(func);
@@ -133,23 +136,26 @@ namespace Cordy
             namedValues.Clear();
             Visit(node.Definition);
 
-            var func = Stack.Pop();
-
-            LLVM.PositionBuilderAtEnd(Builder, LLVM.AppendBasicBlock(func, "entry"));
+            var func = (IrFunction)Stack.Pop();
+            //var entry = ((IrFunction)func).AppendBasicBlock("entry");
+            IRBuilder.PositionAtEnd(func.AppendBasicBlock("entry"));
 
             try
             {
                 Visit(node.Body);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 Stack.Pop();
-                LLVM.DeleteFunction(func);
+                func.EraseFromParent();
                 throw;
             }
 
-            LLVM.VerifyFunction(func, LLVMVerifierFailureAction.LLVMPrintMessageAction);
-            Console.WriteLine("\n");
+            func.Verify(out var err);
+            if (err != null)
+            {
+                Error(err);
+            }
             Stack.Push(func);
             return node;
         }
@@ -162,7 +168,7 @@ namespace Cordy
 
         protected internal override BasicNode VisitVariable(VarNode node)
         {
-            LLVMValueRef value;
+            Value value;
             for (var i = Depth; i >= 0; i++)
             {
                 if (namedValues[i].TryGetValue(node.Name, out value))

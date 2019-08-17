@@ -1,14 +1,27 @@
 ﻿using Cordy.AST;
-using LLVMSharp;
+using Llvm.NET;
+using Llvm.NET.DebugInfo;
+using Llvm.NET.Instructions;
+using Llvm.NET.Transforms;
+using Llvm.NET.Types;
+using Llvm.NET.Values;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
+using Llvm.NET.Interop;
+
 namespace Cordy
 {
+    using Module = BitcodeModule;
+    using IRBuilder = InstructionBuilder;
+    using DIBuilder = DebugInfoBuilder;
+
     internal static class Compiler
     {
+        #region Assembly Structure Generation
         internal static Namespace ROOT { get; private set; }
 
         /// <summary>
@@ -17,14 +30,11 @@ namespace Cordy
         /// <param name="dir"></param>
         internal static void Init(string dir)
         {
-            LLVM.LinkInMCJIT();
-            LLVM.InitializeX86AsmParser();
-            LLVM.InitializeX86AsmPrinter();
-            LLVM.InitializeX86TargetInfo();
-            LLVM.InitializeX86Target();
-            LLVM.InitializeX86TargetMC();
-
-            ROOT = GetSubspaces(dir, dir, new Namespace(dir, Path.GetDirectoryName(dir)));
+            using (Library.InitializeLLVM())
+            {
+                Library.RegisterNative();
+                ROOT = GetSubspaces(dir, dir, new Namespace(dir, Path.GetDirectoryName(dir)));
+            }
         }
 
         /// <summary>
@@ -63,10 +73,13 @@ namespace Cordy
                 );
         }
 
+        #endregion
+
         public static void Build() => ROOT.Build();
 
         #region Output
 
+        #region Console Logging
         [DebuggerStepThrough]
         internal static void Message(string msg, string file, (int, int) pos, string stage)
             => Log("Message", ConsoleColor.Gray, msg, file, pos, stage);
@@ -78,17 +91,14 @@ namespace Cordy
         [DebuggerStepThrough]
         internal static void Warn(string msg, string file, (int, int) pos, string stage)
             => Log("Warning", ConsoleColor.Yellow, msg, file, pos, stage);
-        internal static LLVMTypeRef GetTypeByName(LLVMModuleRef module, string name) => throw new NotImplementedException();
+
         [DebuggerStepThrough]
         internal static void Error(string msg, string file, (int, int) pos, string stage)
             => Log("Error", ConsoleColor.Red, msg, file, pos, stage);
 
-
-
         [DebuggerStepThrough]
         private static void Log(string lvl, ConsoleColor color, string msg, string file = null, (int row, int col)? pos = null, string stage = null)
         {
-            //Console.Write($"[{file}][{pos.row}:{pos.col}][{stage}] ");
             if (file != null)
                 Console.Write($"[{file}]");
             if (pos != null)
@@ -101,46 +111,39 @@ namespace Cordy
             Console.ResetColor();
             Console.WriteLine($" {msg}");
         }
+        #endregion
 
+        #region Dumping
 
-        [DebuggerStepThrough]
-        public static void Log(string stage = null, string msg = null)
-        {
-            if (stage != null)
-                Console.Write($"[{stage}] ");
-            if (msg != null)
-                Console.WriteLine($" {msg}");
-        }
-
-        public static void Dump(LLVMTypeRef type)
+        public static void Dump(ITypeRef type)
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("[LLVM Dump type]\n");
             Console.ResetColor();
-            LLVM.DumpType(type);
+            Console.WriteLine(type.ToString());
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("[LLVM Dump end]");
             Console.ResetColor();
         }
 
-        public static void Dump(LLVMModuleRef module)
+        public static void Dump(Module module)
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("[LLVM Dump module]\n");
             Console.ResetColor();
-            LLVM.DumpModule(module);
+            Console.WriteLine(module.WriteToString());
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("[LLVM Dump end]");
             Console.ResetColor();
         }
 
-        public static void Dump(LLVMValueRef value)
+        public static void Dump(Value value)
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("[LLVM Dump value]\n");
             Console.ResetColor();
-            LLVM.DumpValue(value);
+            Console.WriteLine(value.ToString());
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("[LLVM Dump end]");
             Console.ResetColor();
@@ -148,65 +151,69 @@ namespace Cordy
 
         #endregion
 
-        internal static LLVMPassManagerRef InitPassManager(LLVMModuleRef m)
+        #endregion
+
+        #region Buidling
+
+        internal static FunctionPassManager InitPassManager(Module m)
         {
             // Create a function pass manager for this engine
-            var pm = LLVM.CreateFunctionPassManagerForModule(m);
+            var pm = new FunctionPassManager(m);
 
             // Set up the optimizer pipeline.  Start with registering info about how the
             // target lays out data structures.
             // LLVM.DisposeTargetData(LLVM.GetExecutionEngineTargetData(engine));
 
+
             // Provide basic AliasAnalysis support for GVN.
-            LLVM.AddBasicAliasAnalysisPass(pm);
+            if (false)
+            {
+                pm.AddBasicAliasAnalysisPass()
+                  .AddPromoteMemoryToRegisterPass()
+                  .AddInstructionCombiningPass()
+                  .AddReassociatePass()
+                  .AddGVNPass()
+                  .AddCFGSimplificationPass();
+            }
 
-            // Promote allocas to registers.
-            LLVM.AddPromoteMemoryToRegisterPass(pm);
-
-            // Do simple "peephole" optimizations and bit-twiddling optimisations.
-            LLVM.AddInstructionCombiningPass(pm);
-
-            // Reassociate expressions.
-            LLVM.AddReassociatePass(pm);
-
-            // Eliminate Common SubExpressions.
-            LLVM.AddGVNPass(pm);
-
-            // Simplify the control flow graph (deleting unreachable blocks, etc).
-            LLVM.AddCFGSimplificationPass(pm);
-
-            LLVM.InitializeFunctionPassManager(pm);
-
+            pm.Initialize();
             return pm;
         }
 
-        internal static void Build(CordyType type, LLVMContextRef context)
+        internal static void Build(CordyType type, Context context)
         {
-            var module = LLVM.ModuleCreateWithNameInContext(type.FullName, context);
-            var builder = LLVM.CreateBuilderInContext(context);
-
-            if (LLVM.CreateExecutionEngineForModule(out var engine, module, out var errorMessage).Value == 1)
-            {
-                Error(errorMessage, type.Name, (-1, -1), "LLVM Init");
-                return;
-            }
+            var module = context.CreateBitcodeModule(type.FullName, (SourceLanguage)0xA000, type.FilePath, "C#-based Cordy Compiler");
+            //module.Layout = JIT.TargetMachine.TargetData;
+            var builder = new IRBuilder(context);
 
             var passManager = InitPassManager(module);
 
-            var listener = new CodegenListener(engine, passManager, new CodegenVisitor(module, builder, context, type.FullName));
+            var listener = new CodegenListener(passManager, new CodegenVisitor(module, builder, context, type.FullName));
 
             var lexer = new Lexer();
             lexer.Prepare(type); //tokenizing code
             var parser = new Parser(type, lexer, listener);
 
-
             parser.Parse();
             Dump(module);
+        }
+
+        #endregion
+
+        private static List<Module> ModulesToCompile;
+
+        #region
+
+        internal static ITypeRef GetTypeByName(string name)
+        {
+            throw new NotImplementedException();
         }
 
         internal static Operator GetOperator(string value)
         {
             throw new NotImplementedException();
         }
+
+        #endregion
     }
 }

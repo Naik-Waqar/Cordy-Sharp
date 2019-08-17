@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using Cordy.AST;
+﻿using Cordy.AST;
+using System.Collections.Generic;
 
 namespace Cordy
 {
@@ -10,7 +10,7 @@ namespace Cordy
         {
         }
 
-        protected internal override BasicNode Accept(ExprVisitor visitor) 
+        protected internal override BasicNode Accept(ExprVisitor visitor)
             => visitor.VisitReturnBlock(this);
     }
 }
