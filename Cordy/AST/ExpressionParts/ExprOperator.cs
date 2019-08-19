@@ -1,7 +1,6 @@
 ﻿using Llvm.NET;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Cordy.AST
 {

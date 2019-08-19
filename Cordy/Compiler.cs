@@ -222,16 +222,46 @@ namespace Cordy
 
         #region
 
-        internal static ITypeRef GetTypeByName(string name) => throw new NotImplementedException();
-
-        internal static ExprOperator GetOperator(string rep)
+        internal static ITypeRef GetTypeByName(string name)
         {
+            //TODO: Make search in imports
+            //TODO: Make non-keyword search
             foreach (var m in Modules)
             {
                 var meta = m.NamedMetadata.ToList();
-                var oper = GetOper(meta, "prefix", rep)
-                        ?? GetOper(meta, "binary", rep)
-                        ?? GetOper(meta, "postfix", rep);
+                var t = GetTypeFromKeyword(m, meta, name);
+                if (t != null)
+                    return t;
+            }
+
+            return null;
+        }
+
+        private static ITypeRef GetTypeFromKeyword(Module m, List<NamedMDNode> meta, string name)
+        {
+            var opers = meta.Find(x => x.Name == "cordy.types.keywords")?.Operands?.ToList();
+            if (opers == null)
+                return null;
+
+            foreach (var o in opers)
+            {
+                var parts = o.GetOperandString(0).Split(new[] { ',', ':', '(', ')', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts[0] != name)
+                    continue;
+
+                return (ITypeRef)typeof(Context).GetMethod(parts[1]).Invoke(m.Context, new object[] { uint.Parse(parts[2]) });
+            }
+            return null;
+        }
+
+        internal static ExprOperator GetOperator(string rep)
+        {
+            foreach (var m in Modules) //TODO: Make search in imports
+            {
+                var meta = m.NamedMetadata.ToList();
+                var oper = GetOperator(meta, "prefix", rep)
+                        ?? GetOperator(meta, "binary", rep)
+                        ?? GetOperator(meta, "postfix", rep);
                 if (oper != null)
                     return oper;
             }
@@ -239,7 +269,7 @@ namespace Cordy
             return null;
         }
 
-        private static ExprOperator GetOper(List<NamedMDNode> meta, string group, string rep)
+        private static ExprOperator GetOperator(List<NamedMDNode> meta, string group, string rep)
         {
             var opers = meta.Find(x => x.Name == "cordy.operators." + group)?.Operands?.ToList();
             if (opers == null)

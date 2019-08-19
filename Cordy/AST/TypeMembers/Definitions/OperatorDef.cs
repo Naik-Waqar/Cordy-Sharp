@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using Cordy.Codegen;
+﻿using Cordy.Codegen;
+using System.Collections.Generic;
 
 namespace Cordy.AST
 {

@@ -9,7 +9,7 @@
         public Operator(OperatorDef def, BasicNode body)
             : base(def, body)
         {
-            
+
             Kind = eNodeKind.Operator;
         }
 

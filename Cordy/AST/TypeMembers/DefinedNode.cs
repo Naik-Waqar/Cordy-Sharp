@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Cordy.AST
+﻿namespace Cordy.AST
 {
     /// <summary>
     /// Used for any definable element like function or property

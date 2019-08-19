@@ -6,8 +6,6 @@ using Llvm.NET.Types;
 using Llvm.NET.Values;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 
 namespace Cordy.Codegen
 {
@@ -273,7 +271,7 @@ namespace Cordy.Codegen
                 if (node.Args[i].Type.Template?.Count != 0)
                     Error($"Generic types aren't done yet. Result can differ from expectations");
                 var t = Compiler.GetTypeByName(node.Args[i].Type.Name); //TODO: Make generics
-                if (t != null)
+                if (t == null)
                 {
                     Error($"Unknown type '{node.Args[i].Type.Name}'");
                     return null;
@@ -291,6 +289,8 @@ namespace Cordy.Codegen
             {
                 var name = node.Args[i].Name;
                 func.Parameters[i].Name = name;
+                while (namedValues.Count <= Depth)
+                    namedValues.Add(new Dictionary<string, Value>());
                 namedValues[Depth][name] = func.Parameters[i];
             }
 
