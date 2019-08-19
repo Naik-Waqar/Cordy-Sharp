@@ -2,6 +2,7 @@
 using Llvm.NET.Instructions;
 using Llvm.NET.ObjectFile;
 using Llvm.NET.Types;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -10,7 +11,7 @@ namespace Cordy
     /// <summary>
     /// Used for generation of new code
     /// </summary>
-    public class CordyType
+    public sealed partial class CordyType
     {
         /// <summary>
         /// Is this type Class, Interface or Enum
@@ -46,6 +47,7 @@ namespace Cordy
 
         #endregion
 
+        #region Debug Info
         /// <summary>
         /// Types, this inherited from
         /// </summary>
@@ -64,14 +66,16 @@ namespace Cordy
         /// <summary>
         /// List of compilation process modifiers
         /// </summary>
-        public List<List<Lexem>> Parameters { get; } = new List<List<Lexem>>();
+        public List<string> Parameters { get; } = new List<string>();
 
         /// <summary>
         /// List of LLVM's attributes and parameters
         /// </summary>
-        public List<List<Lexem>> Attributes { get; } = new List<List<Lexem>>();
+        public List<string> Attributes { get; } = new List<string>();
 
         public string FullName => $"{Name}.co";
+
+        #endregion
 
         public bool haveSignature { get; private set; }
 
@@ -80,7 +84,7 @@ namespace Cordy
         /// <summary>
         /// Reference to LLVM module
         /// </summary>
-        public BitcodeModule Module { get; private set; }
+        public BitcodeModule Module { get; internal set; }
 
         /// <summary>
         /// Reference to defined LLVM type
@@ -117,6 +121,22 @@ namespace Cordy
         }
 
         internal void Build(Context context) => Compiler.Build(this, context);
+
+        internal void ApplyParameter(string p)
+        {
+            try
+            {
+                var parts = p.Split(new[] { ',', ' ', '(', ')' }, StringSplitOptions.RemoveEmptyEntries);
+                var m = typeof(CordyType).GetMethod(parts[0], new[] { typeof(string[]) });
+                m.Invoke(this, new[] { parts[1..parts.Length] });
+            }
+            catch (Exception e)
+            {
+                Compiler.Error(e.Message, FullName, null, "Apply Parameter");
+            }
+        }
+
+        internal void ApplyAttribute(string v) => throw new NotImplementedException("Attributes");
     }
 
     public enum eTypeContext

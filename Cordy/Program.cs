@@ -18,7 +18,7 @@ namespace System
     {
         public NotImplementedException() : base() { }
 
-        public NotImplementedException(string message) : base(message) { }
+        public NotImplementedException(string message) : base($"{message} not implemented yet") { }
 
         public NotImplementedException(string message, Exception innerException) : base(message, innerException) { }
 

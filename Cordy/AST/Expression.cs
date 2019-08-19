@@ -8,14 +8,14 @@ namespace Cordy.AST
     /// </summary>
     public class Expression : ExprNode
     {
-        public Expression(Operator oper, List<ExprNode> args)
+        public Expression(ExprOperator oper, List<ExprNode> args)
         {
             Args = args;
             Operator = oper;
             Kind = eNodeKind.Expression;
         }
 
-        public Operator Operator { get; }
+        public ExprOperator Operator { get; }
 
         public List<ExprNode> Args { get; }
 

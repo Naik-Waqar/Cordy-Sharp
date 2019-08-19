@@ -291,7 +291,12 @@ namespace Cordy
                     #region Operators
                 {
                     eLexemType.Operator,
-                    new Regex(@"[<,>=!#%^?.:&*\-+\\$\/_~]{1,3}",
+                    new Regex(@"[<>=!#%^?:&*\-+\\$\/_~]{1,3}",
+                        RegexOptions.Compiled)
+                },
+                {
+                    eLexemType.Comma,
+                    new Regex(@"\,",
                         RegexOptions.Compiled)
                 },
                     #endregion
@@ -396,15 +401,7 @@ namespace Cordy
             var start = I;
             while (Current.Type != eLexemType.NewLine && Prev.Type != eLexemType.NewLine)
                 I++;
-            //while (I < Text.Length && !(Text[I] == '\n' && Text[I - 1] == '\n'))
-            //{
-            //    I++;
-            //    Row++;
-            //}
-            //Col = 0;
-            //Prev = new Lexem(eLexemType.NewLine, 0, Row);
-            //Current = Prev = new Lexem(eLexemType.NewLine, 1, Row);
-            //return Text[start..I];
+
             return "";
         }
 
@@ -447,11 +444,13 @@ namespace Cordy
 
         public override string FileName => Type.FullName;
 
-        public override (int, int) Pos => (Row + 1, Col + 1);
+        public override (int, int)? Pos => (Row + 1, Col + 1);
 
         public Lexem Next()
         {
             I++;
+            if (I >= Lexems.Count)
+                return Lexems[Lexems.Count - 1];
             return Lexems[I];
         }
 

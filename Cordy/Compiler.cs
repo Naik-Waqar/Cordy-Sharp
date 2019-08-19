@@ -4,6 +4,7 @@ using Llvm.NET;
 using Llvm.NET.DebugInfo;
 using Llvm.NET.Instructions;
 using Llvm.NET.Interop;
+using Llvm.NET.ObjectFile;
 using Llvm.NET.Transforms;
 using Llvm.NET.Types;
 using Llvm.NET.Values;
@@ -29,10 +30,18 @@ namespace Cordy
         /// <param name="dir"></param>
         internal static void Init(string dir)
         {
-            using (Library.InitializeLLVM())
+            try
             {
-                Library.RegisterNative();
-                ROOT = GetSubspaces(dir, dir, new Namespace(dir, Path.GetDirectoryName(dir)));
+
+                using (Library.InitializeLLVM())
+                {
+                    Library.RegisterNative();
+                    ROOT = GetSubspaces(dir, dir, new Namespace(dir, Path.GetDirectoryName(dir)));
+                }
+            }
+            catch (Exception ex)
+            {
+                Error(ex.Message);
             }
         }
 
@@ -45,7 +54,7 @@ namespace Cordy
         /// <returns></returns>
         private static Namespace GetSubspaces(string root, string dir, Namespace n)
         {
-            var dirs = Directory.GetDirectories(dir, "*", SearchOption.TopDirectoryOnly);
+            var dirs = Directory.GetDirectories(dir, "!.*", SearchOption.TopDirectoryOnly);
             foreach (var d in dirs)
             {
                 if (!d.StartsWith("_"))
@@ -56,6 +65,8 @@ namespace Cordy
             InsertFiles(n, dir);
             return n;
         }
+
+        internal static void CreateObject(Context context) => throw new NotImplementedException();
 
         /// <summary>
         /// Initializes files
@@ -76,26 +87,33 @@ namespace Cordy
 
         public static void Build() => ROOT.Build();
 
+        /// <summary>
+        /// List of known modules
+        /// </summary>
+        public static List<Module> Modules { get; } = new List<Module>();
+
+        public static Dictionary<string, TargetObjectFile> Imports { get; } = new Dictionary<string, TargetObjectFile>();
+
         #region Output
 
         #region Console Logging
         [DebuggerStepThrough]
-        internal static void Message(string msg, string file, (int, int) pos, string stage)
+        internal static void Message(string msg, string file = null, (int, int)? pos = null, string stage = null)
             => Log("Message", ConsoleColor.Gray, msg, file, pos, stage);
 
         [DebuggerStepThrough]
-        internal static void Info(string msg, string file, (int, int) pos, string stage)
+        internal static void Info(string msg, string file = null, (int, int)? pos = null, string stage = null)
             => Log("Info", ConsoleColor.Cyan, msg, file, pos, stage);
 
         [DebuggerStepThrough]
-        internal static void Warn(string msg, string file, (int, int) pos, string stage)
+        internal static void Warn(string msg, string file = null, (int, int)? pos = null, string stage = null)
             => Log("Warning", ConsoleColor.Yellow, msg, file, pos, stage);
 
         [DebuggerStepThrough]
-        internal static void Error(string msg, string file, (int, int) pos, string stage)
+        internal static void Error(string msg, string file = null, (int, int)? pos = null, string stage = null)
             => Log("Error", ConsoleColor.Red, msg, file, pos, stage);
 
-        [DebuggerStepThrough]
+
         private static void Log(string lvl, ConsoleColor color, string msg, string file = null, (int row, int col)? pos = null, string stage = null)
         {
             if (file != null)
@@ -117,34 +135,35 @@ namespace Cordy
         public static void Dump(ITypeRef type)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("[LLVM Dump type]\n");
+            Console.WriteLine("\n[LLVM Dump type]\n");
             Console.ResetColor();
             Console.WriteLine(type.ToString());
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("[LLVM Dump end]");
+            Console.WriteLine("\n[LLVM Dump end]\n");
             Console.ResetColor();
         }
 
         public static void Dump(Module module)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("[LLVM Dump module]\n");
+            Console.WriteLine("\n[LLVM Dump module]\n");
             Console.ResetColor();
             Console.WriteLine(module.WriteToString());
+            Console.WriteLine("\n" + module.GetTypeByName("long")?.ToString());
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("[LLVM Dump end]");
+            Console.WriteLine("[LLVM Dump end]\n");
             Console.ResetColor();
         }
 
         public static void Dump(Value value)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("[LLVM Dump value]\n");
+            Console.WriteLine("\n[LLVM Dump value]\n");
             Console.ResetColor();
             Console.WriteLine(value.ToString());
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("[LLVM Dump end]");
+            Console.WriteLine("[LLVM Dump end]\n");
             Console.ResetColor();
         }
 
@@ -181,13 +200,15 @@ namespace Cordy
 
         internal static void Build(CordyType type, Context context)
         {
-            var module = context.CreateBitcodeModule(type.FullName, (SourceLanguage)0xA000, type.FilePath, "C#-based Cordy Compiler");
+            var module = context.CreateBitcodeModule(type.Name, (SourceLanguage)0xA000, type.FilePath, "C#-based Cordy Compiler");
+            Modules.Add(module);
+            type.Module = module;
             //module.Layout = JIT.TargetMachine.TargetData;
             var builder = new IRBuilder(context);
 
             var passManager = InitPassManager(module);
 
-            var listener = new Listener(passManager, new Visitor(module, builder, context, type.FullName));
+            var listener = new Listener(passManager, new Visitor(module, builder, context, type.Name));
 
             var lexer = new Lexer();
             lexer.Prepare(type); //tokenizing code
@@ -199,13 +220,44 @@ namespace Cordy
 
         #endregion
 
-        private static List<Module> ModulesToCompile;
-
         #region
 
         internal static ITypeRef GetTypeByName(string name) => throw new NotImplementedException();
 
-        internal static Operator GetOperator(string value) => throw new NotImplementedException();
+        internal static ExprOperator GetOperator(string rep)
+        {
+            foreach (var m in Modules)
+            {
+                var meta = m.NamedMetadata.ToList();
+                var oper = GetOper(meta, "prefix", rep)
+                        ?? GetOper(meta, "binary", rep)
+                        ?? GetOper(meta, "postfix", rep);
+                if (oper != null)
+                    return oper;
+            }
+
+            return null;
+        }
+
+        private static ExprOperator GetOper(List<NamedMDNode> meta, string group, string rep)
+        {
+            var opers = meta.Find(x => x.Name == "cordy.operators." + group)?.Operands?.ToList();
+            if (opers == null)
+                return null;
+
+            foreach (var o in opers)
+            {
+                var name = o.GetOperandString(0);
+                if (name != rep)
+                    continue;
+
+                var odata = meta.Find(x => x.Name == name).Operands.ToList();
+                return new ExprOperator(odata, group, rep);//operator info
+            }
+            return null;
+        }
+
+        internal static int GetOperPrecedence(Operator @operator) => throw new NotImplementedException();
 
         #endregion
     }

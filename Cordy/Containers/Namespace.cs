@@ -43,15 +43,16 @@ namespace Cordy
         /// </summary>
         internal void Build()
         {
+            var context = new Context();
             for (var i = 0; i < Subspaces.Count; i++)
                 Subspaces[i].Build();
 
             for (var i = 0; i < Types.Count; i++)
             {
-                var context = new Context();
                 Types[i].Build(context);
-                context.Dispose();
             }
+            //Compiler.CreateObject(context);
+            context.Dispose();
         }
     }
 }

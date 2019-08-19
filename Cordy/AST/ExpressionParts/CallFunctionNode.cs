@@ -12,7 +12,7 @@ namespace Cordy.AST
         {
             Callee = callee;
             Args = args;
-            Kind = eNodeKind.CallFunction;
+            Kind = eNodeKind.Function;
         }
 
         public override eNodeKind Kind { get; protected set; }

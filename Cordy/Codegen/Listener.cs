@@ -46,8 +46,7 @@ namespace Cordy.Codegen
             FunctionPassManager = passManager;
         }
 
-        public void EnterHandleFunctionDefinition(Function data)
-        { }
+        public void EnterHandleFunctionDefinition(Function data) { }
 
         public void ExitHandleFunctionDefinition(Function data)
         {
@@ -57,6 +56,19 @@ namespace Cordy.Codegen
             FunctionPassManager.Run(func);
         }
 
+        public void EnterHandleOperatorDefinition(Operator data) { }
+
+        public void ExitHandleOperatorDefinition(Operator data)
+        {
+            Visitor.Visit(data);
+            var oper = Visitor.Stack.Pop();
+            if (oper != null)
+                try
+                {
+                    FunctionPassManager.Run((IrFunction)oper);
+                }
+                catch { }
+        }
 
         private sealed class ASTContext
         {

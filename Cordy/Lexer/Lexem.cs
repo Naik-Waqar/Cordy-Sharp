@@ -6,11 +6,11 @@
 
         public eLexemType Type { get; }
 
-        public (int Row, int Col) Pos { get; }
+        public (int Row, int Col)? Pos { get; }
 
-        public Lexem(eLexemType type, (int row, int col) pos) : this(type, null, pos) { }
+        public Lexem(eLexemType type, (int row, int col)? pos) : this(type, null, pos) { }
 
-        public Lexem(eLexemType type, string val, (int row, int col) pos)
+        public Lexem(eLexemType type, string val, (int row, int col)? pos)
         {
             Type = type;
             Value = val;

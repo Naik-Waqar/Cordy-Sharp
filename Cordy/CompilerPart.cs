@@ -6,7 +6,7 @@
 
         public abstract string FileName { get; }
 
-        public abstract (int, int) Pos { get; }
+        public abstract (int, int)? Pos { get; }
 
         public virtual void Error(string msg)
             => Compiler.Error(msg, FileName, Pos, Stage);

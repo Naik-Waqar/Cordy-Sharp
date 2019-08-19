@@ -6,6 +6,8 @@ using Llvm.NET.Types;
 using Llvm.NET.Values;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace Cordy.Codegen
 {
@@ -24,33 +26,41 @@ namespace Cordy.Codegen
         #region Expression Nodes
 
 
-        protected internal BasicNode VisitExpression(Expression node) =>
-            //if (node.Args.Count > 2 || node.Args.Count < 1)
-            //    throw new Exception("Wrong expression");
-            //
-            //LLVMValueRef n;
-            //
-            //switch (node.Args.Count)
-            //{
-            //    case 1:
-            //
-            //    case 2:
-            //        Visit(node.Args[0]);
-            //        var l = Stack.Pop();
-            //
-            //        Visit(node.Args[1]);
-            //        var r = Stack.Pop();
-            //
-            //        if (node.Operator is PredefinedOperator)
-            //        {
-            //            //n = RunPredefinedOperator(l, r, (PredefinedOperator)node.Operator);
-            //            Stack.Push(n);
-            //            return node;
-            //            //MethodInfo
-            //        }
-            //
-            //}
-            null;
+        protected internal BasicNode VisitExpression(Expression node)
+        {
+            var op = node.Operator;
+            Value n;
+            switch (op.Kind)
+            {
+                case "prefix" when node.Args.Count != 1:
+                case "postfix" when node.Args.Count != 1:
+                case "binary" when node.Args.Count != 2:
+                default: //TODO: Add 'other' type
+                    throw new Exception("Wrong expression");
+
+                case "prefix":
+                    throw new NotImplementedException("Prefix operators");
+                case "postfix":
+                    throw new NotImplementedException("Postfix operators");
+                case "binary":
+                    foreach (var arg in node.Args)
+                        Visit(arg); // LHS ,RHS
+
+                    var rhs = Stack.Pop();
+                    var lhs = Stack.Pop();
+                    switch (op.CalleeType)
+                    {
+                        case "I": //TODO: Make type matching
+                            n = (Value)typeof(IRBuilder).GetMethod(op.Callee, new[] { typeof(Value), typeof(Value) }).Invoke(IRBuilder, new[] { lhs, rhs });
+                            Stack.Push(n);
+                            return node;
+                        case "F": //TODO: Make dynamic type recognition
+                            throw new NotImplementedException("Function calls from operators");
+                        default:
+                            throw new Exception("Wrong operator callee type");
+                    }
+            }
+        }
 
         protected internal BasicNode VisitCall(CallFunctionNode node)
             => node;
@@ -128,20 +138,30 @@ namespace Cordy.Codegen
 
         #region Loops
 
+
         protected internal BasicNode VisitForBlock(ForBlock block)
+
             => block;
+
         protected internal BasicNode VisitForeachBlock(ForeachBlock block)
+
             => block;
+
         protected internal BasicNode VisitWhileBlock(WhileBlock block)
+
             => block;
+
         protected internal BasicNode VisitDoWhileBlock(DoWhileBlock block)
+
             => block;
 
         #endregion
 
         #region Exception Handling
 
+
         protected internal BasicNode VisitTryBlock(TryBlock block)
+
             => block;
 
         #endregion
@@ -150,24 +170,58 @@ namespace Cordy.Codegen
 
         #region Type Members
 
-        protected internal BasicNode VisitPropertyDef(Property node)
-            => node;
-        protected internal BasicNode VisitOperatorDef(Operator node)
-             => node;
-        protected internal BasicNode VisitIndexerDef(Indexer node)
-            => node;
-        protected internal BasicNode VisitConstructorDef(Constructor node)
-            => node;
-        protected internal BasicNode VisitIndexerDef(Event node)
+        #region Declaration
+
+        protected internal BasicNode VisitProperty(Property node)
             => node;
 
-        protected internal BasicNode VisitFunctionDef(Function node)
+        protected internal BasicNode VisitOperator(Operator node)
+        {
+            namedValues.Clear();
+            Visit(node.Definition);
+
+            var oper = (IrFunction)Stack.Pop();
+            if (oper == null)
+            {
+                Stack.Push(null);
+                return node; //we parsed instruction
+            }
+
+            try // trying to parse body of function
+            {
+                Visit(node.Body);
+            }
+            catch (Exception)
+            {
+                Stack.Pop();
+                oper.EraseFromParent();
+                throw;
+            }
+
+            oper.Verify(out var err);
+            if (!string.IsNullOrEmpty(err))
+            {
+                Error(err);
+            }
+            Stack.Push(oper);
+            return node;
+        }
+
+        protected internal BasicNode VisitIndexer(Indexer node)
+            => node;
+
+        protected internal BasicNode VisitConstructor(Constructor node)
+            => node;
+
+        protected internal BasicNode VisitIndexer(Event node)
+            => node;
+
+        protected internal BasicNode VisitFunction(Function node)
         {
             namedValues.Clear();
             Visit(node.Definition);
 
             var func = (IrFunction)Stack.Pop();
-            //var entry = ((IrFunction)func).AppendBasicBlock("entry");
             IRBuilder.PositionAtEnd(func.AppendBasicBlock("entry"));
 
             try
@@ -182,7 +236,7 @@ namespace Cordy.Codegen
             }
 
             func.Verify(out var err);
-            if (err != null)
+            if (!string.IsNullOrEmpty(err))
             {
                 Error(err);
             }
@@ -190,22 +244,27 @@ namespace Cordy.Codegen
             return node;
         }
 
-        protected internal BasicNode VisitPrototype(Definition node)
+        #endregion
+
+        #region Definition
+
+        protected internal BasicNode VisitFunctionDefinition(FunctionDef node)
         {
+            //TODO: Make some cleanup
             var count = node.Args.Count;
             var args = new ITypeRef[count];
 
             var func = Module.GetFunction(node.Name);
             if (func != null)
             {
-                if (func.BasicBlocks.Count != 0) //TODO: allow redefines
+                if (func.BasicBlocks.Count != 0) //TODO: overload
                 {
-                    Error($"Member '{node.Name}' redefined");
+                    Error($"Member '{node.Name}' already defined");
                     return null;
                 }
                 if (func.Parameters.Count != count)
                 {
-                    Error($"Member '{node.Name}' redefined with another count of args");
+                    Error($"Member '{node.Name}' already defined with another count of args"); // override
                     return null;
                 }
             }
@@ -227,7 +286,6 @@ namespace Cordy.Codegen
             //TODO: Get return type
             //TODO: Create different types of definitions
             func = Module.AddFunction(node.Name, Context.GetFunctionType(rtype, args, false));
-            //func.Linkage(Linkage.);
 
             for (var i = 0; i < node.Args.Count; i++)
             {
@@ -239,6 +297,35 @@ namespace Cordy.Codegen
             Stack.Push(func);
             return node;
         }
+
+        protected internal BasicNode VisitOperatorDefinition(OperatorDef node)
+        {
+            var count = node.Args.Count;
+            var args = new ITypeRef[count];
+
+            var rep = node.MetaParts["Representation"];
+
+            // register operator in module
+
+            //saving representation of operator in operator list
+            Module.AddNamedMetadataOperand("cordy.operators." + node.MetaParts["Kind"], Context.CreateMDNode(node.MetaParts["Representation"]));
+
+            //saving info about operator in specified metadata node
+            Module.AddNamedMetadataOperand(rep, Context.CreateMDNode(node.MetaParts["Precedence"]));
+            Module.AddNamedMetadataOperand(rep, Context.CreateMDNode(node.MetaParts["Modules"]));
+            Module.AddNamedMetadataOperand(rep, Context.CreateMDNode(node.MetaParts["Type"]));
+            Module.AddNamedMetadataOperand(rep, Context.CreateMDNode(node.MetaParts["Callee"]));
+            Module.AddNamedMetadataOperand(rep, Context.CreateMDNode(node.MetaParts["Args"]));
+
+            if (node.MetaParts["Type"] != "F") // if not function -> we are done
+            {
+                Stack.Push(null);
+                return node;
+            }
+            return VisitFunctionDefinition(node);
+        }
+
+        #endregion
 
         #endregion
 
@@ -252,7 +339,7 @@ namespace Cordy.Codegen
 
         public override string FileName { get; }
 
-        public override (int, int) Pos { get; } = (0, 0);
+        public override (int, int)? Pos { get; } = null;
 
         #endregion
 
