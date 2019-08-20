@@ -6,11 +6,12 @@
         {
             Get = get;
             Set = set;
-
         }
-
+        //TODO: Combine Get and Set to one block
         public BasicNode Get { get; }
         public BasicNode Set { get; }
+
+        public DefinedNode Empty { get; protected set; } = null;
 
     }
 }

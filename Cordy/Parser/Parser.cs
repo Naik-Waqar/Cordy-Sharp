@@ -1,5 +1,4 @@
 ﻿using Cordy.AST;
-using Cordy.Codegen;
 using Cordy.Exceptions;
 using System;
 using System.Collections.Generic;
@@ -8,27 +7,25 @@ using System.Collections.Generic;
 namespace Cordy
 {
     using static eLexemType;
+
     //TODO: Comment all this stuff
-    public class Parser : CompilerPart
+    public class Parser : CompilerPart, IDisposable
     {
         #region "Bridge"
 
         private Lexer Lexer;
-        //private Listener Listener;
         private CordyType Type;
-        private Generator Generator;
-
-        private Lexem Current => Lexer.Current;
 
         #endregion
 
+        private Lexem Current => Lexer.Current;
+
         #region Constructors
 
-        internal Parser(CordyType type, Lexer lexer, Generator generator)
+        internal Parser(CordyType type, Lexer lexer)
         {
             Type = type;
             Lexer = lexer;
-            Generator = generator;
         }
 
         public Parser(Lexer lexer) => Lexer = lexer;
@@ -44,8 +41,8 @@ namespace Cordy
         private bool isSealed;
         private eTypeContext context;
 
-        private List<string> Parameters { get; } = new List<string>();
-        private List<string> Attributes { get; } = new List<string>();
+        private List<string> Parameters = new List<string>();
+        private List<string> Attributes = new List<string>();
 
         #endregion
 
@@ -66,8 +63,6 @@ namespace Cordy
         {
             ClearConsumables();
 
-            //TODO: Use exceptions for error handling
-            //TODO: Move switch to separate method
             try
             {
                 while (true)
@@ -75,6 +70,11 @@ namespace Cordy
                     try
                     {
                         GenerateElement();
+                    }
+                    catch (exElementNotFound ex)
+                    {
+                        Fails.Add(new UnparsedMember(MemberBodyStart, CurrentDefinition, CurrentMemberType, ex.lexID, Attributes, Parameters));
+                        Clear();
                     }
                     catch (exUnexpected e)
                     {
@@ -371,11 +371,13 @@ namespace Cordy
         {
             isStatic = isProtected = isSealed = false;
             lvl = eAccessLevel.Undefined;
-            Parameters.Clear();
-            Attributes.Clear();
+            Parameters = new List<string>();
+            Attributes = new List<string>();
         }
 
         private static TypeNode Void { get; } = new TypeNode("void", null, null);
+
+        public object Definitions { get; private set; }
 
         #endregion
 
@@ -383,16 +385,48 @@ namespace Cordy
 
         public void Handle(string member)
         {
-            //Listener.EnterRule($"Handle{member}Definition");
-            var m = (DefinedNode)typeof(Parser).GetMethod("Parse" + member).Invoke(this, null);
-            m.Definition.ApplyParameters(Parameters);
-            //Listener.ExitRule(m);
+            var m = Handlers[member](this);
             if (m == null)
                 throw new exBadDefinition(member);
-            Generator.Emit(m);
-            //Listener.Listen();
+
+            m.Definition.ApplyParameters(Parameters);
+            Type.AddMember(m);
+
             ClearConsumables();
+
+            for (var i = 0; i < Fails.Count; i++)
+            {
+                var f = Fails[i];
+                if (Lexer.Lexems[f.FailedToken].Value == m.Definition.Name)
+                {
+                    LastPoint = Lexer.I;
+                    CurrentDefinition = f.FailedDefinition;
+                    CurrentMemberType = f.FailedType;
+                    MemberBodyStart = f.LexID;
+                    try
+                    {
+                        Type.AddMember(Reparse(f));
+                    }
+                    catch (exElementNotFound e)
+                    {
+                        if (f.FailedDefinition == CurrentDefinition)
+                        {
+                            Lexer.I = LastPoint;
+                            Fails.Remove(f); // we failed it again
+                            throw e;        // so we need to remove it from fails and add again in main loop
+                        }
+                    }
+                    Lexer.I = LastPoint;
+                }
+            }
         }
+
+        public static Dictionary<string, Func<Parser, DefinedNode>> Handlers
+            = new Dictionary<string, Func<Parser, DefinedNode>>
+            {
+                { "Function", ParseFunction },
+                { "Operator", ParseOperator },
+            };
 
         #endregion
 
@@ -436,23 +470,41 @@ namespace Cordy
 
         public Property ParseProperty() => throw new NotImplementedException();
 
-        public Operator ParseOperator()
+        public static DefinedNode ParseOperator(Parser p)
         {
-            var code = Current.Value;
-            Lexer.Next();
-            var args = ParseFunctionArgs(RoundBracketOpen, RoundBracketClose);
-            var body = ParseBlock();
-            var def = new OperatorDef(handledType ?? Void, args, code);
-            return new Operator(def, body);
+            p.CurrentMemberType = typeof(Operator);
+            var code = p.Current.Value;
+            p.Lexer.Next();
+            p.CurrentDefinition = new OperatorDef(p.handledType ?? Void,
+                                                  p.ParseFunctionArgs(RoundBracketOpen, RoundBracketClose),
+                                                  code); //TODO: Repace void with 'this'
+            p.MemberBodyStart = p.Lexer.I;
+            var body = p.ParseBlock();
+            return new Operator((OperatorDef)p.CurrentDefinition, body);
         }
 
-        public Function ParseFunction()
+        public static DefinedNode ParseFunction(Parser p)
         {
-            var name = Lexer.Prev.Value;
-            var args = ParseFunctionArgs(RoundBracketOpen, RoundBracketClose);
+            p.CurrentMemberType = typeof(Function);
+            p.CurrentDefinition = new FunctionDef(p.lvl,
+                                                  p.isProtected,
+                                                  p.isStatic,
+                                                  p.handledType ?? Void,
+                                                  p.Lexer.Prev.Value,
+                                                  p.ParseFunctionArgs(RoundBracketOpen, RoundBracketClose));
+            p.MemberBodyStart = p.Lexer.I;
+            var body = p.ParseBlock();
+            return new Function((FunctionDef)p.CurrentDefinition, body);
+        }
+
+        public DefinedNode Reparse(UnparsedMember mem)
+        {
+            Lexer.I = mem.LexID;
             var body = ParseBlock();
-            var def = new FunctionDef(lvl, isProtected, isStatic, handledType, name, args);
-            return new Function(def, body);
+            var fd = mem.FailedDefinition;
+            return (DefinedNode)mem.FailedType
+                      .GetConstructor(new[] { fd.GetType(), typeof(CodeBlock) })
+                      .Invoke(new object[] { fd, body });
         }
 
         #endregion
@@ -541,8 +593,10 @@ namespace Cordy
                     curOper = Compiler.GetOperator(Current.Value);
                     if (curOper == null)
                     {
-                        Error($"Operator '{Current.Value}' not defined");
-                        return null;
+                        //TODO: Save current member and return when required element is defined
+                        //Error($"Operator '{Current.Value}' not defined"); 
+                        //return null;
+                        throw new exElementNotFound(Lexer.I);
                     }
                     // if this is a binop at least as tightly as the current binop,
                     // consume it, otherwise we are done
@@ -725,8 +779,15 @@ namespace Cordy
             }
 
             Lexer.Next(); // eat ')'
-            if (Current.Type == Operator && Compiler.GetOperator(Current.Value).Kind == "postfix")
-                return ParseUnaryPostfix(v);
+
+            if (Current.Type == Operator)
+            {
+                var op = Compiler.GetOperator(Current.Value);
+                if (op == null)
+                    throw new exElementNotFound(Lexer.I);
+                if (op.Kind == "postfix")
+                    return ParseUnaryPostfix(v);
+            }
 
             return v;
         }
@@ -834,6 +895,7 @@ namespace Cordy
             var blocks = new List<CodeBlock>();
             Lexer.Next();
             while (indent == minIndent)
+            {
                 switch (Current.Type)
                 {
                     case NewLine:
@@ -961,6 +1023,8 @@ namespace Cordy
                         blocks.Add(ParseTryCatchFinally());
                         continue;
                 }
+
+            }
             return null;
         }
 
@@ -991,6 +1055,34 @@ namespace Cordy
             var var = (ExprNode)new VarDefinition(name, t);
             return ParseBinOpRHS(0, ref var);
         }
+
+        #endregion
+
+        public void Dispose()
+        {
+            foreach(var fail in Fails)
+            {
+                var lex = Lexer.Lexems[fail.LexID];
+                Compiler.Error($"Unknown element {lex.Value}", Type.Name, lex.Pos, "Parser");
+            }
+            Lexer.Dispose();
+        }
+
+        #region Backtracking
+
+        public List<UnparsedMember> Fails { get; } = new List<UnparsedMember>();
+
+        public Type CurrentMemberType { get; private set; }
+
+        private int MemberBodyStart;
+
+        private Definition CurrentDefinition;
+
+        #region Point to continue
+
+        private int LastPoint;
+
+        #endregion
 
         #endregion
     }

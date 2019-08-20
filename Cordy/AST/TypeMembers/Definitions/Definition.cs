@@ -63,5 +63,19 @@ namespace Cordy.AST
             }
         }
 
+        public override bool Equals(object obj)
+        {
+            var def = (Definition)obj;
+            if (def.Type != Type || def.Args.Count != Args.Count)
+                return false;
+
+            for (var i = 0; i < Args.Count; i++)
+            {
+                if (Args[i].Type.Name != def.Args[i].Type.Name)
+                    return false;
+            }
+
+            return true;
+        }
     }
 }

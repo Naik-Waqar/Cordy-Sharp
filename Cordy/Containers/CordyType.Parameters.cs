@@ -8,7 +8,6 @@ namespace Cordy
         {
             var name = args[0];
             var size = Convert.ToUInt32(args[1]);
-            //var md = Module.Context.CreateMDNode($"GetIntType,{size}");
             var s = Module.Context.CreateMDNode($"{name}:GetIntType({size})");
             Module.AddNamedMetadataOperand("cordy.types.keywords", s);
         }

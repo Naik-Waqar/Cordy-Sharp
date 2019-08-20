@@ -9,18 +9,18 @@ namespace Cordy
     using static eLexemType;
     using static RegexOptions;
 
-    public class Lexer : CompilerPart
+    public class Lexer : CompilerPart, IDisposable
     {
         //TODO: Add more different things
         private static readonly Regex Splitter
             = new Regex(@"(?:((@)?|(\$)?)*([""'`])(?(2)(?:(?(?=\4\4)\4\4|(?!\4)(?:.|\s))*)|(?:\\\4|(?:(?!\4)(.|\s)))*)\4)                                           # string                 #
-                          |\n|\t+|\s+                                  # spaces                 #
+                          |\n|\t+|\s+                                   # spaces                 #
                           |\#{2}(?:(?!\#{2}|\n|$).)*(?:\#{2})?          # single-line comment    #
                           |\#\*(?:(?!\*\#)(?:.|\s))*\*\#                # multi-line comment     #
                           |\#[^\n]*                                     # preprocessor directive #
                           |-?0?[bBoOxX]?[\da-fA-F_]+\b                  # integer                #
-                          |(?:-?\d[\d_]*)?(?:[.,]\d[\d_]*)\b           # float                  #
-                          |[<>=!#%\^?:&*.\-+\\$\/_~]{1,3}|,                # operator               #
+                          |(?:-?\d[\d_]*)?(?:[.,]\d[\d_]*)\b            # float                  #
+                          |[<>=!#%\^?:&*.\-+\\$\/_~]{1,3}|,             # operator               #
                           |[]{()}[]                                     # bracket                #
                                                                         #========================#
                                                                         #        keywords        #
@@ -32,8 +32,8 @@ namespace Cordy
                             |if|el(?:se\s*)?if|else|switch              #  branching             #
                             |for(?:each)?|while|do|in                   #  loops                 #
                             |true|false                                 #  boolean constants     #
-                            |include                                   #  import library        #
-                            |[gs]et                                    #  property modifiers    #
+                            |include                                    #  import library        #
+                            |[gs]et                                     #  property modifiers    #
                             |using                                      #  threading and rename  # <- Will be expanded later
                             |new                                        #  constructor           #
                             |event                                      #  event                 #
@@ -42,7 +42,7 @@ namespace Cordy
                           )\b                                           #========================#
                                                                         #      not keywords      #
                                                                         #========================#
-                          |(?:[a-zA-Z@$_]\w*\.)*[a-zA-Z@$_]\w*\b         # identifier             #
+                          |(?:[a-zA-Z@$_]\w*\.)*[a-zA-Z@$_]\w*\b        # identifier             #
                          ",
             Compiled | IgnorePatternWhitespace | Multiline);
 
@@ -107,7 +107,7 @@ namespace Cordy
 
                 #region Keywords
 
-                #region Storage Modifiers
+                    #region Storage Modifiers
                 {
                     Key_AccessLevel,
                     new Regex(@"\b(?:public|private|internal)\b",
@@ -133,7 +133,7 @@ namespace Cordy
                     new Regex(@"\bclass|enum|interface\b",
                         Compiled)
                 },
-                #endregion
+                    #endregion
 
                     #region Flow Control
 
@@ -228,7 +228,7 @@ namespace Cordy
                     new Regex(@"\busing\b",
                         Compiled)
                 },
-                #endregion
+                    #endregion
 
                     #region Property Modifiers
                 {
@@ -241,7 +241,7 @@ namespace Cordy
                     new Regex(@"\bset\b",
                         Compiled)
                 },
-                #endregion
+                    #endregion
 
                     #region Memory Management
                 {
@@ -249,7 +249,7 @@ namespace Cordy
                     new Regex(@"\bnew\b",
                         Compiled)
                 },
-                #endregion
+                    #endregion
 
                 #endregion
 
@@ -438,9 +438,6 @@ namespace Cordy
 
         public List<Lexem> Lexems = new List<Lexem>();
 
-        private string tokenized => Text[0..(I + (I < Text.Length ? 1 : 0))];
-        private char now => Text[I];
-
         private CordyType Type;
 
         public override string Stage { get; } = "Lexer";
@@ -501,5 +498,7 @@ namespace Cordy
             }
             return o;
         }
+
+        public void Dispose() => Lexems = null;
     }
 }

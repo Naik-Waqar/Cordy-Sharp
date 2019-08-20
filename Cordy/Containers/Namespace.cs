@@ -1,4 +1,5 @@
-﻿using Llvm.NET;
+﻿using Cordy.AST;
+using Llvm.NET;
 using System.Collections.Generic;
 using System.IO;
 
@@ -53,6 +54,33 @@ namespace Cordy
             }
             //Compiler.CreateObject(context);
             context.Dispose();
+        }
+
+        internal ExprOperator FindOperator(string rep)
+        {
+            ExprOperator op;
+            foreach (var type in Types)
+            {
+                if (type.Members != null)
+                {
+                    if (type.Members.TryGetValue("Operator", out var ops))
+                    {
+                        foreach (Operator oper in ops)
+                        {
+                            if (oper.Definition.Name == rep)
+                                return oper.ToExprOperator();
+                        }
+                    }
+                }
+            }
+
+            foreach (var s in Subspaces)
+            {
+                op = s.FindOperator(rep);
+                if (op != null)
+                    return op;
+            }
+            return null;
         }
     }
 }

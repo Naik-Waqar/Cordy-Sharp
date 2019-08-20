@@ -4,8 +4,8 @@
     {
         public Indexer(IndexerDef def, BasicNode body)
             : base(def, body)
-            {}
+        { }
 
-        
+        public DefinedNode Empty { get; protected set; } = null;
     }
 }

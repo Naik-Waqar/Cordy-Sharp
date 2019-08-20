@@ -3,13 +3,15 @@
     /// <summary>
     /// Operator declaration
     /// </summary>
-    public sealed class Operator : FunctionalMember
+    public sealed class Operator : FunctionalMember, iEmpty<Operator>
     {
         public Operator(OperatorDef def, BasicNode body)
             : base(def, body)
         { }
 
-        public int GetPrecedence() => Compiler.GetOperPrecedence(this);
+        internal ExprOperator ToExprOperator()
+            => new ExprOperator((Definition as OperatorDef).MetaParts);
 
+        public static Operator Empty { get; } = null;
     }
 }

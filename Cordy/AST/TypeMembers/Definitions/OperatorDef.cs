@@ -21,11 +21,7 @@ namespace Cordy.AST
             MetaParts["Type"] = "F";
             MetaParts["Callee"] = Name;
             MetaParts["Modules"] = "Int"; //TODO: Make required module evaluation
-
-
         }
-
-
 
         #region Parameters
 

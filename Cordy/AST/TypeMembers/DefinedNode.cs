@@ -9,6 +9,5 @@
             => Definition = def;
 
         public Definition Definition { get; }
-
     }
 }

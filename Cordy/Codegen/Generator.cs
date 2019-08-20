@@ -17,7 +17,7 @@ namespace Cordy.Codegen
     using IRBuilder = InstructionBuilder;
     using Module = BitcodeModule;
 
-    public sealed class Generator : CompilerPart
+    public sealed class Generator : CompilerPart, IDisposable
     {
         #region DebugInfo (Console)
 
@@ -45,7 +45,7 @@ namespace Cordy.Codegen
 
         [DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Emit(BasicNode n)
+        internal void Emit(BasicNode n) 
             => em(n)(this, n);
 
         private static Dictionary<string, Func<Generator, BasicNode, BasicNode>> Emitters { get; }
@@ -106,13 +106,13 @@ namespace Cordy.Codegen
                                     args.Add(rhs);
 
                                     n = (Value)typeof(IRBuilder).GetMethod(op.Callee, new[] { typeof(Predicate), typeof(Value), typeof(Value) })
-                                                                .Invoke(g.IRBuilder, args.ToArray()); //TODO: Make argumented instructions
+                                                                .Invoke(g.IRBuilder, args.ToArray());
                                     break;
 
                                 default:
                                     if (rhs.NativeType.IsPointer)
                                         rhs = g.IRBuilder.Load(rhs);
-                                    n = (Value)typeof(IRBuilder).GetMethod(op.Callee).Invoke(g.IRBuilder, new[] { lhs, rhs }); //TODO: Make argumented instructions
+                                    n = (Value)typeof(IRBuilder).GetMethod(op.Callee).Invoke(g.IRBuilder, new[] { lhs, rhs });
                                     break;
                             }
                             break;
@@ -475,10 +475,15 @@ namespace Cordy.Codegen
             Module = module;
             IRBuilder = builder;
             FileName = filename;
+            Engine = engine;
         }
 
         public void ClearStack() => Stack.Clear();
 
-
+        public void Dispose()
+        {
+            if (!Engine.IsDisposed)
+                Engine.Dispose();
+        }
     }
 }

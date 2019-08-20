@@ -19,6 +19,24 @@ namespace Cordy.AST
             Predicate = data[4].GetOperandString(0).Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
+        public ExprOperator(Dictionary<string, string> meta)
+        {
+            if (meta.ContainsKey("Representation"))
+                Representation = meta["Representation"];
+            if (meta.ContainsKey("Kind"))
+                Kind = meta["Kind"];
+            if (meta.ContainsKey("Precedence"))
+                Precedence = int.Parse(meta["Precedence"]);
+            if (meta.ContainsKey("Type"))
+                CalleeType = meta["Type"];
+            if (meta.ContainsKey("Callee"))
+                Callee = meta["Callee"];
+            if (meta.ContainsKey("Modules"))
+                RequiredModules = meta["Modules"].Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (meta.ContainsKey("Args"))
+                Predicate = meta["Args"].Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
         /// <summary>
         /// Used only for assignment operator
         /// </summary>

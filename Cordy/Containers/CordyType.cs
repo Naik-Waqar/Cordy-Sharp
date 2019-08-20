@@ -1,5 +1,4 @@
 ﻿using Llvm.NET;
-using Llvm.NET.Instructions;
 using Llvm.NET.ObjectFile;
 using Llvm.NET.Types;
 using System;
@@ -8,6 +7,9 @@ using System.IO;
 
 namespace Cordy
 {
+    using AST;
+    using Exceptions;
+
     /// <summary>
     /// Used for generation of new code
     /// </summary>
@@ -87,14 +89,9 @@ namespace Cordy
         public BitcodeModule Module { get; internal set; }
 
         /// <summary>
-        /// Reference to defined LLVM type
+        /// Reference to associated LLVM type
         /// </summary>
         public ITypeRef LLVMType { get; private set; }
-
-        /// <summary>
-        /// Associated IRBuilder
-        /// </summary>
-        public InstructionBuilder IRBuilder { get; private set; }
 
         #endregion
 
@@ -102,11 +99,6 @@ namespace Cordy
         /// Stores all modules loaded by include deirctives
         /// </summary>
         public List<TargetObjectFile> LoadedIncludes { get; } = new List<TargetObjectFile>();
-
-        /// <summary>
-        /// Macroses defined in file
-        /// </summary>
-        public Dictionary<string, ITypeRef> Macros { get; } = new Dictionary<string, ITypeRef>();
 
         /// <summary>
         /// Creates new instance of <see cref="CordyType"/> class
@@ -137,6 +129,49 @@ namespace Cordy
         }
 
         internal void ApplyAttribute(string v) => throw new NotImplementedException("Attributes");
+
+        public Dictionary<string, List<DefinedNode>> Members { get; } = new Dictionary<string, List<DefinedNode>>();
+
+        internal void AddMember(DefinedNode m)
+        {
+            var g = m.GetType().Name;
+            if (!Members.TryGetValue(g, out var group))
+                group = Members[g] = new List<DefinedNode>();
+            var i = group.FindIndex(x => x.Definition.Name == m.Definition.Name);
+            if (i == -1)
+            {
+                group.Add(m);
+                return;
+            }
+
+            else if (!(m is FunctionalMember))
+                return;
+
+            var gr = group[i] as FunctionalMember;
+            var ex = gr.Overrides.Find(x => x.Definition.Equals(m.Definition));
+            if (ex != null)
+                throw new exDuplicate($"{g} '{m.Definition.Name}'", Name);
+
+            gr.Overrides.Add(m as FunctionalMember);
+        }
+
+        internal List<DefinedNode> GetAllMembers()
+        {
+            var members = new List<DefinedNode>();
+            foreach (var group in Members)
+            {
+                foreach (var member in group.Value)
+                {
+                    if (member is FunctionalMember)
+                    {
+                        foreach (var ov in (member as FunctionalMember).Overrides)
+                            members.Add(ov);
+                    }
+                    members.Add(member);
+                }
+            }
+            return members;
+        }
     }
 
     public enum eTypeContext

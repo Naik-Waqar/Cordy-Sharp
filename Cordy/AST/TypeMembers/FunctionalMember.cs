@@ -1,4 +1,6 @@
-﻿namespace Cordy.AST
+﻿using System.Collections.Generic;
+
+namespace Cordy.AST
 {
     public abstract class FunctionalMember : DefinedNode
     {
@@ -7,5 +9,8 @@
             => Body = body;
 
         public BasicNode Body { get; }
+
+        public List<FunctionalMember> Overrides { get; } = new List<FunctionalMember>();
+
     }
 }

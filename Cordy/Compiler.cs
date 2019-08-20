@@ -212,9 +212,16 @@ namespace Cordy
             var generator = new Generator(module, builder, context, JIT, type.Name);
             var lexer = new Lexer();
             lexer.Prepare(type); //tokenizing code
-            var parser = new Parser(type, lexer, generator);
+            using (var parser = new Parser(type, lexer))
+            {
+                parser.Parse();
+            }
 
-            parser.Parse();
+            var members = type.GetAllMembers();
+            foreach (var member in members)
+                generator.Emit(member);
+            generator.Dispose();
+
             Dump(module);
         }
 
@@ -233,7 +240,6 @@ namespace Cordy
                 if (t != null)
                     return t;
             }
-
             return null;
         }
 
@@ -256,12 +262,16 @@ namespace Cordy
 
         internal static ExprOperator GetOperator(string rep)
         {
+            var oper = ROOT.FindOperator(rep);
+            if (oper != null)
+                return oper;
+
             foreach (var m in Modules) //TODO: Make search in imports
             {
                 var meta = m.NamedMetadata.ToList();
-                var oper = GetOperator(meta, "prefix", rep)
-                        ?? GetOperator(meta, "binary", rep)
-                        ?? GetOperator(meta, "postfix", rep);
+                oper = GetOperatorFromModule(meta, "prefix", rep)
+                        ?? GetOperatorFromModule(meta, "binary", rep)
+                        ?? GetOperatorFromModule(meta, "postfix", rep);
                 if (oper != null)
                     return oper;
             }
@@ -269,7 +279,7 @@ namespace Cordy
             return null;
         }
 
-        private static ExprOperator GetOperator(List<NamedMDNode> meta, string group, string rep)
+        private static ExprOperator GetOperatorFromModule(List<NamedMDNode> meta, string group, string rep)
         {
             var opers = meta.Find(x => x.Name == "cordy.operators." + group)?.Operands?.ToList();
             if (opers == null)
@@ -286,8 +296,6 @@ namespace Cordy
             }
             return null;
         }
-
-        internal static int GetOperPrecedence(Operator @operator) => throw new NotImplementedException();
 
         #endregion
     }
