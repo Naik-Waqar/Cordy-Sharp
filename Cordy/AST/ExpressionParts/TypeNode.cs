@@ -20,11 +20,6 @@ namespace Cordy.AST
 
         public List<ExprNode> Settings { get; }
 
-
-
-        //        protected internal override BasicNode Accept(Visitor visitor)
-        //            => visitor.VisitType(this);
-
         public override string ToString()
         {
             var s = Name;

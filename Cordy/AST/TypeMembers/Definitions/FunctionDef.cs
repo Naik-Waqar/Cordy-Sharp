@@ -10,10 +10,5 @@ namespace Cordy.AST
         public FunctionDef(eAccessLevel lvl, bool isProtected, bool isStatic, TypeNode type, string name, List<VarDefinition> args)
             : base(lvl, isProtected, isStatic, type, args, name)
         { }
-
-
-
-        // protected internal override BasicNode Accept(Visitor visitor)
-        //     => visitor.VisitFunctionDefinition(this);
     }
 }
