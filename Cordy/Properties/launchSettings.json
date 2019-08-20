@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Cordy": {
+      "commandName": "Project",
+      "commandLineArgs": "Z:\\Cordy",
+      "nativeDebugging": true
+    }
+  }
+}
