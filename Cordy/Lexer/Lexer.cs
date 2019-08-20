@@ -6,6 +6,9 @@ using System.Text.RegularExpressions;
 
 namespace Cordy
 {
+    using static eLexemType;
+    using static RegexOptions;
+
     public class Lexer : CompilerPart
     {
         //TODO: Add more different things
@@ -41,10 +44,10 @@ namespace Cordy
                                                                         #========================#
                           |(?:[a-zA-Z@$_]\w*\.)*[a-zA-Z@$_]\w*\b         # identifier             #
                          ",
-            RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace | RegexOptions.Multiline);
+            Compiled | IgnorePatternWhitespace | Multiline);
 
         private static readonly Regex BadNL
-            = new Regex(@"\r\n?", RegexOptions.Compiled);
+            = new Regex(@"\r\n?", Compiled);
 
         /// <summary>
         /// Makes a skip to the End-Of-Line character
@@ -53,7 +56,7 @@ namespace Cordy
         internal List<Lexem> SkipToEOL()
         {
             var lex = new List<Lexem>();
-            while (Current.Type != eLexemType.NewLine)
+            while (Current.Type != NewLine)
             {
                 I++;
                 lex.Add(Current);
@@ -67,38 +70,38 @@ namespace Cordy
             {
                 #region Indentation
                 {
-                    eLexemType.Indent,
+                    Indent,
                     new Regex(@"\t+",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
                 #region Literals|String
                 {
-                    eLexemType.String,
+                    String,
                     new Regex(@"((\@)?|(\$)?|(\~)?|(\%)?)*?([""'`])(?(2)(?:(?(?=\6\6)\6\6|(?!\6)(?:.|\s))*)|(?:\\\6|(?:(?!\6)(.|\s)))*)\6",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
                 #region Comments
                 {
-                    eLexemType.SingleLineComment,
+                    SingleLineComment,
                     new Regex(@"\#{2}(?:(?!\#{2}|\n|$).)*(?'end'\#{2})?",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.MultiLineComment,
+                    MultiLineComment,
                     new Regex(@"\#\*(?:(?!\*\#)(?:.|\s))*(?'end'\*\#)",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
                 #region Preprocessing
                 {
-                    eLexemType.PreprocessorDirective,
+                    PreprocessorDirective,
                     new Regex(@"\#(?:(?!\n)(?:(?'words'\w+)|\s+))*",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
@@ -106,29 +109,29 @@ namespace Cordy
 
                 #region Storage Modifiers
                 {
-                    eLexemType.Key_AccessLevel,
+                    Key_AccessLevel,
                     new Regex(@"\b(?:public|private|internal)\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Protected,
+                    Key_Protected,
                     new Regex(@"\bprotected\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Static,
+                    Key_Static,
                     new Regex(@"\bstatic\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Sealed,
+                    Key_Sealed,
                     new Regex(@"\bsealed\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_FileContext,
+                    Key_FileContext,
                     new Regex(@"\bclass|enum|interface\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
@@ -136,79 +139,79 @@ namespace Cordy
 
                         #region Exception Handling
                 {
-                    eLexemType.Key_Try,
+                    Key_Try,
                     new Regex(@"\btry\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Catch,
+                    Key_Catch,
                     new Regex(@"\bcatch\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Finally,
+                    Key_Finally,
                     new Regex(@"\bfinally\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Throw,
+                    Key_Throw,
                     new Regex(@"\bthrow\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
                         #region Branching
                 {
-                    eLexemType.Key_If,
+                    Key_If,
                     new Regex(@"\bif\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_ElseIf,
+                    Key_ElseIf,
                     new Regex(@"\bel(?:se\s*)?if\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Else,
+                    Key_Else,
                     new Regex(@"\belse\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Switch,
+                    Key_Switch,
                     new Regex(@"\bswitch\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                         #endregion
 
                         #region Loops
                 {
-                    eLexemType.Key_Foreach,
+                    Key_Foreach,
                     new Regex(@"\bforeach\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_For,
+                    Key_For,
                     new Regex(@"\bfor\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_While,
+                    Key_While,
                     new Regex(@"\bwhile\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Do,
+                    Key_Do,
                     new Regex(@"\bdo\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
 
                 #endregion
 
                         #region Return
                 {
-                eLexemType.Key_Return,
+                Key_Return,
                 new Regex(@"\breturn\b",
-                    RegexOptions.Compiled)
+                    Compiled)
                 },
 	                    #endregion
 
@@ -216,35 +219,35 @@ namespace Cordy
 
                     #region Link Generation
                 {
-                    eLexemType.Key_Include,
+                    Key_Include,
                     new Regex(@"\binclude\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Using,
+                    Key_Using,
                     new Regex(@"\busing\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
                     #region Property Modifiers
                 {
-                    eLexemType.Key_Get,
+                    Key_Get,
                     new Regex(@"\bget\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.Key_Set,
+                    Key_Set,
                     new Regex(@"\bset\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
                     #region Memory Management
                 {
-                    eLexemType.Key_New,
+                    Key_New,
                     new Regex(@"\bnew\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 #endregion
 
@@ -254,83 +257,88 @@ namespace Cordy
 
                     #region Identifier
                 {
-                    eLexemType.Identifier,
+                    Identifier,
                     new Regex(@"\b(?:[a-zA-Z@$_]\w*.)*[a-zA-Z@$_]\w*\b",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                     #endregion
 
                     #region Numbers
                 {
-                    eLexemType.Float,
+                    Float,
                     new Regex(@"-?(?:\d[\d_]*)?[.,]\d[\d_]*",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.IntegerBinary,
+                    IntegerBinary,
                     new Regex(@"-?0[bB][01][01_]*",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.IntegerOctal,
+                    IntegerOctal,
                     new Regex(@"-?0[oO][0-7][0-7_]*",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.IntegerHexadecimal,
+                    IntegerHexadecimal,
                     new Regex(@"-?0[xX][\da-fA-F][\da-fA-F_]*",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.IntegerDecimal,
+                    IntegerDecimal,
                     new Regex(@"-?\d[\d_]*",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                     #endregion
 
                     #region Operators
                 {
-                    eLexemType.Operator,
-                    new Regex(@"[<>=!#%^?:&*\-+\\$\/_~]{1,3}",
-                        RegexOptions.Compiled)
+                    Op_Assignment,
+                    new Regex(@"(?<!.)=(?!.)",
+                        Compiled)
                 },
                 {
-                    eLexemType.Comma,
+                    Op_Comma,
                     new Regex(@"\,",
-                        RegexOptions.Compiled)
+                        Compiled)
+                },
+                {
+                    Operator,
+                    new Regex(@"[<>=!#%^?:&*\-+\\$\/_~]{1,3}",
+                        Compiled)
                 },
                     #endregion
 
                     #region Brackets
                 {
-                    eLexemType.CurlyBracketOpen,
+                    CurlyBracketOpen,
                     new Regex(@"\{",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.RoundBracketOpen,
+                    RoundBracketOpen,
                     new Regex(@"\(",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.SquareBracketOpen,
+                    SquareBracketOpen,
                     new Regex(@"\[",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.CurlyBracketClose,
+                    CurlyBracketClose,
                     new Regex(@"\}",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.RoundBracketClose,
+                    RoundBracketClose,
                     new Regex(@"\)",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                 {
-                    eLexemType.SquareBracketClose,
+                    SquareBracketClose,
                     new Regex(@"\]",
-                        RegexOptions.Compiled)
+                        Compiled)
                 },
                     #endregion
 
@@ -342,11 +350,9 @@ namespace Cordy
             '{' => '}',
             '(' => ')',
             '[' => ']',
-            '<' => '>',
             '}' => '{',
             ')' => '(',
             ']' => '[',
-            '>' => '<',
             _ => '\0',
         };
 
@@ -356,13 +362,12 @@ namespace Cordy
             {
                 {'{', 0 },
                 {'[', 0 },
-                {'<', 0 },
                 {'(', 0 },
             };
 
             var start = I;
             var undone = true;
-            while (Current.Type != eLexemType.EOF && I < Lexems.Count && undone)
+            while (Current.Type != EOF && I < Lexems.Count && undone)
             {
                 var b = InvertBracket(Current.Value[0]);
                 if (Current.Value == ignore)
@@ -399,7 +404,7 @@ namespace Cordy
         internal string SkipToEmptyLine()
         {
             var start = I;
-            while (Current.Type != eLexemType.NewLine && Prev.Type != eLexemType.NewLine)
+            while (Current.Type != NewLine && Prev.Type != NewLine)
                 I++;
 
             return "";
@@ -414,10 +419,10 @@ namespace Cordy
             Text = BadNL.Replace(Text, "\n");
             Lexems = new List<Lexem>
             {
-                new Lexem(eLexemType.SOF, Pos)
+                new Lexem(SOF, Pos)
             };
             Lexems.AddRange(Tokenize(Text));
-            Lexems.Add(new Lexem(eLexemType.EOF, Pos));
+            Lexems.Add(new Lexem(EOF, Pos));
             I = 0;
         }
 
@@ -430,8 +435,6 @@ namespace Cordy
 
         //public Lexem Current { get; private set; }
         public Lexem Current => Lexems[I];
-
-        private Match lastMatch;
 
         public List<Lexem> Lexems = new List<Lexem>();
 
@@ -467,7 +470,7 @@ namespace Cordy
                 case "\n":
                     Col = 0;
                     Row++;
-                    return new Lexem(eLexemType.NewLine, "\n", Pos);
+                    return new Lexem(NewLine, "\n", Pos);
                 default:
                     if (v.Replace(" ", "").Length == 0)
                         break;

@@ -1,4 +1,5 @@
 ﻿using Cordy.AST;
+using Cordy.Exceptions;
 using Llvm.NET;
 using Llvm.NET.DebugInfo;
 using Llvm.NET.Instructions;
@@ -6,6 +7,8 @@ using Llvm.NET.Types;
 using Llvm.NET.Values;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Cordy.Codegen
 {
@@ -13,16 +16,17 @@ namespace Cordy.Codegen
     using IRBuilder = InstructionBuilder;
     using Module = BitcodeModule;
 
-    public class Visitor : CompilerPart
+    public class Visitor : CompilerPart, IDisposable
     {
+        [DebuggerStepThrough]
         public BasicNode Visit(BasicNode node)
             => node.Accept(this);
 
+        [DebuggerStepThrough]
         protected internal BasicNode VisitExtension(BasicNode node)
             => node.VisitChildren(this);
 
         #region Expression Nodes
-
 
         protected internal BasicNode VisitExpression(Expression node)
         {
@@ -33,6 +37,7 @@ namespace Cordy.Codegen
                 case "prefix" when node.Args.Count != 1:
                 case "postfix" when node.Args.Count != 1:
                 case "binary" when node.Args.Count != 2:
+                case "assign" when node.Args.Count != 2:
                 default: //TODO: Add 'other' type
                     throw new Exception("Wrong expression");
 
@@ -40,6 +45,7 @@ namespace Cordy.Codegen
                     throw new NotImplementedException("Prefix operators");
                 case "postfix":
                     throw new NotImplementedException("Postfix operators");
+                case "assign":
                 case "binary":
                     foreach (var arg in node.Args)
                         Visit(arg); // LHS ,RHS
@@ -49,15 +55,43 @@ namespace Cordy.Codegen
                     switch (op.CalleeType)
                     {
                         case "I": //TODO: Make type matching
-                            n = (Value)typeof(IRBuilder).GetMethod(op.Callee, new[] { typeof(Value), typeof(Value) }).Invoke(IRBuilder, new[] { lhs, rhs });
-                            Stack.Push(n);
-                            return node;
+                            var args = new List<object>();
+                            switch (op.Callee)
+                            {
+                                case "Compare":
+                                    foreach (var p in op.Predicate)
+                                        args.Add((Predicate)Enum.Parse(typeof(Predicate), p, true));
+                                    args.Add(lhs);
+                                    args.Add(rhs);
+
+                                    n = (Value)typeof(IRBuilder).GetMethod(op.Callee, new[] { typeof(Predicate), typeof(Value), typeof(Value) })
+                                                                .Invoke(IRBuilder, args.ToArray()); //TODO: Make argumented instructions
+                                    break;
+
+                                default:
+                                    if (rhs.NativeType.IsPointer)
+                                        rhs = IRBuilder.Load(rhs);
+                                    n = (Value)typeof(IRBuilder).GetMethod(op.Callee).Invoke(IRBuilder, new[] { lhs, rhs }); //TODO: Make argumented instructions
+                                    break;
+                            }
+                            break;
                         case "F": //TODO: Make dynamic type recognition
                             throw new NotImplementedException("Function calls from operators");
                         default:
-                            throw new Exception("Wrong operator callee type");
+                            if (op.Kind != "assign")
+                                throw new Exception("Wrong operator callee type");
+
+                            if (rhs.NativeType.IsPointer)
+                                rhs = IRBuilder.Load(rhs);
+
+                            IRBuilder.Store(rhs, lhs); // write value
+                            n = IRBuilder.Load(rhs.NativeType, lhs).RegisterName(lhs.Name[0..lhs.Name.IndexOf('.')]+".get"); // load written value
+                            break;
                     }
+                    break;
             }
+            Stack.Push(n);
+            return node;
         }
 
         protected internal BasicNode VisitCall(CallFunctionNode node)
@@ -65,35 +99,36 @@ namespace Cordy.Codegen
 
         protected internal BasicNode VisitVariable(VarNode node)
         {
-            for (var i = Depth; i >= 0; i++)
-            {
-                if (namedValues[i].TryGetValue(node.Name, out var value))
-                {
-                    Stack.Push(value);
-                    return node;
-                }
-            }
-            throw new Exception($"Unable to find variable {node.Name}");
+            if (GetDefinedVariable(node.Name) == null)
+                throw new Exception($"Unable to find variable {node.Name}");
+            return node;
         }
 
-
+        //[DebuggerStepThrough]
         protected internal BasicNode VisitInteger(IntegerNode node)
         {
             Stack.Push(Context.CreateConstant(Context.Int32Type, node.Value, node.Signed));
             return node;
         }
 
+        //[DebuggerStepThrough]
         protected internal BasicNode VisitFloat(FloatNode node)
         {
             Stack.Push(Context.CreateConstant(node.Value));
             return node;
         }
+
         protected internal BasicNode VisitType(TypeNode node)
             => node;
 
-
         [Obsolete("Not done")]
-        protected internal BasicNode VisitVariableDef(VarDefinition node) => null;
+        protected internal BasicNode VisitVariableDef(VarDefinition node)
+        {
+            var var = GetOrAllocateVar(Compiler.GetTypeByName(node.Type.Name), node.Name);
+            namedValues[Depth][node.Name] = var;
+            Stack.Push(var);
+            return node;
+        }
         #endregion
 
         #region Code Blocks
@@ -217,10 +252,15 @@ namespace Cordy.Codegen
         protected internal BasicNode VisitFunction(Function node)
         {
             namedValues.Clear();
-            Visit(node.Definition);
+            Depth = 0;
 
+            Visit(node.Definition);
             var func = (IrFunction)Stack.Pop();
-            IRBuilder.PositionAtEnd(func.AppendBasicBlock("entry"));
+            IRBuilder.PositionAtEnd(func.AppendBasicBlock(""));
+
+            var keys = namedValues[0].Keys.ToList();
+            for (var i = 0; i < namedValues[0].Count; i++)
+                namedValues[0][keys[i]] = GetOrAllocateVar(namedValues[Depth][keys[i]].NativeType, keys[i]);
 
             try
             {
@@ -233,26 +273,55 @@ namespace Cordy.Codegen
                 throw;
             }
 
-            func.Verify(out var err);
-            if (!string.IsNullOrEmpty(err))
-            {
+            if (!func.Verify(out var err))
                 Error(err);
-            }
+
             Stack.Push(func);
             return node;
         }
 
         #endregion
 
+        private Value GetDefinedVariable(string name)
+        {
+            for (var i = Depth; i >= 0; i--)
+            {
+                if (namedValues[i].TryGetValue(name, out var value))
+                {
+                    Stack.Push(value);
+                    return value;
+                }
+            }
+            return null;
+        }
+
+        private Value GetOrAllocateVar(ITypeRef type, string name)
+        {
+            var v = GetDefinedVariable(name);
+            if (v != null)
+                if (v.GetType() == typeof(Alloca))
+                    return namedValues[Depth][name];
+                else
+                {
+                    var al = IRBuilder.Alloca(namedValues[Depth][name].NativeType).RegisterName(name + ".ptr");
+                    IRBuilder.Store(namedValues[Depth][name], al);
+                    return namedValues[Depth][name] = al;
+                }
+
+            return namedValues[Depth][name] = IRBuilder.Alloca(type).RegisterName(name + ".ptr");
+        }
+
         #region Definition
 
         protected internal BasicNode VisitFunctionDefinition(FunctionDef node)
         {
-            //TODO: Make some cleanup
+            //TODO: Make TODOs
             var count = node.Args.Count;
             var args = new ITypeRef[count];
 
             var func = Module.GetFunction(node.Name);
+
+            //TODO: remove this piece of shit (idk how)
             if (func != null)
             {
                 if (func.BasicBlocks.Count != 0) //TODO: overload
@@ -262,24 +331,34 @@ namespace Cordy.Codegen
                 }
                 if (func.Parameters.Count != count)
                 {
-                    Error($"Member '{node.Name}' already defined with another count of args"); // override
+                    Error($"Member '{node.Name}' already defined with another count of args"); //TODO: override
                     return null;
                 }
             }
+
             for (var i = 0; i < count; i++)
             {
-                if (node.Args[i].Type.Template?.Count != 0)
+                if (node.Args[i].Type.Template?.Count != 0) //TODO: Make generics
                     Error($"Generic types aren't done yet. Result can differ from expectations");
-                var t = Compiler.GetTypeByName(node.Args[i].Type.Name); //TODO: Make generics
+
+                var t = Compiler.GetTypeByName(node.Args[i].Type.Name);
                 if (t == null)
                 {
                     Error($"Unknown type '{node.Args[i].Type.Name}'");
                     return null;
                 }
+
                 args[i] = t;
             }
-            //var rtype = Compiler.GetTypeByName(node.Type?.Name);
-            var rtype = Context.Int32Type;
+
+            ITypeRef rtype;
+            if (node.Type == null)
+                rtype = Context.VoidType;
+            else
+                rtype = Compiler.GetTypeByName(node.Type?.Name);
+            if (rtype == null)
+                throw new exUnexpected($"unknown type {node.Type.Name}");
+
             //TODO: Apply storage modifiers
             //TODO: Get return type
             //TODO: Create different types of definitions
@@ -333,6 +412,7 @@ namespace Cordy.Codegen
         private IRBuilder IRBuilder;
         private DIBuilder DIBuilder;
         private Context Context;
+        private JIT Engine;
 
         #region Logging
         public override string Stage { get; } = "CodeGen";
@@ -359,9 +439,14 @@ namespace Cordy.Codegen
             Module = module;
             IRBuilder = builder;
             FileName = filename;
+            Engine = new JIT();
         }
 
         public void ClearStack() => Stack.Clear();
 
+        public void Dispose()
+        {
+            Engine.Dispose();
+        }
     }
 }

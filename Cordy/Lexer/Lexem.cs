@@ -60,7 +60,7 @@
         Key_This,
         Key_Event,
         Key_Is,
-        Comma,
+        Op_Comma,
         Undefined,
         SOF,
         CurlyBracketOpen,
@@ -71,6 +71,7 @@
         CurlyBracketClose,
         RoundBracketClose,
         SquareBracketClose,
-        Key_Return
+        Key_Return,
+        Op_Assignment
     }
 }

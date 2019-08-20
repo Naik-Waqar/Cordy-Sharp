@@ -1,5 +1,6 @@
 ﻿using Cordy.Codegen;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Cordy.AST
 {
@@ -21,6 +22,7 @@ namespace Cordy.AST
 
         public override eNodeKind Kind { get; protected set; }
 
+        [DebuggerStepThrough]
         protected internal override BasicNode Accept(Visitor visitor)
             => visitor.VisitExpression(this);
     }

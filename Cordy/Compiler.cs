@@ -32,10 +32,10 @@ namespace Cordy
         {
             try
             {
-
                 using (Library.InitializeLLVM())
                 {
-                    Library.RegisterNative();
+                    Library.RegisterAll();
+                    //Library.RegisterNative();
                     ROOT = GetSubspaces(dir, dir, new Namespace(dir, Path.GetDirectoryName(dir)));
                 }
             }
@@ -180,10 +180,7 @@ namespace Cordy
 
             // Set up the optimizer pipeline.  Start with registering info about how the
             // target lays out data structures.
-            // LLVM.DisposeTargetData(LLVM.GetExecutionEngineTargetData(engine));
-
-
-            // Provide basic AliasAnalysis support for GVN.
+            
             if (false)
             {
                 pm.AddBasicAliasAnalysisPass()
@@ -203,7 +200,7 @@ namespace Cordy
             var module = context.CreateBitcodeModule(type.Name, (SourceLanguage)0xA000, type.FilePath, "C#-based Cordy Compiler");
             Modules.Add(module);
             type.Module = module;
-            //module.Layout = JIT.TargetMachine.TargetData;
+
             var builder = new IRBuilder(context);
 
             var passManager = InitPassManager(module);

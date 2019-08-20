@@ -1,4 +1,6 @@
-﻿namespace Cordy.AST
+﻿using System;
+
+namespace Cordy.AST
 {
     /// <summary>
     /// Type of node

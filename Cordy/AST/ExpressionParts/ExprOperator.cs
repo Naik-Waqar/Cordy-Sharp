@@ -16,7 +16,15 @@ namespace Cordy.AST
             RequiredModules = data[1].GetOperandString(0).Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             CalleeType = data[2].GetOperandString(0);
             Callee = data[3].GetOperandString(0);
-            Args = data[4].GetOperandString(0).Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            Predicate = data[4].GetOperandString(0).Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        /// <summary>
+        /// Used only for assignment operator
+        /// </summary>
+        public ExprOperator()
+        {
+            Kind = "assign";
         }
 
         public string Representation { get; }
@@ -31,6 +39,6 @@ namespace Cordy.AST
 
         public string Callee { get; }
 
-        public string[] Args { get; }
+        public string[] Predicate { get; }
     }
 }

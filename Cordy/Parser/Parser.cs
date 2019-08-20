@@ -4,8 +4,10 @@ using Cordy.Exceptions;
 using System;
 using System.Collections.Generic;
 
+
 namespace Cordy
 {
+    using static eLexemType;
     //TODO: Comment all this stuff
     public class Parser : CompilerPart
     {
@@ -14,6 +16,7 @@ namespace Cordy
         private Lexer Lexer;
         private Listener Listener;
         private CordyType Type;
+        private Generator Generator;
 
         private Lexem Current => Lexer.Current;
 
@@ -109,22 +112,22 @@ namespace Cordy
         {
             switch (Lexer.Next().Type)
             {
-                case eLexemType.EOF:
+                case EOF:
                     throw new exEOF();
 
                 //ignore trash
-                case eLexemType.NewLine:
-                case eLexemType.Indent:
-                case eLexemType.PreprocessorDirective:
-                case eLexemType.MultiLineComment:
-                case eLexemType.SingleLineComment:
+                case NewLine:
+                case Indent:
+                case PreprocessorDirective:
+                case MultiLineComment:
+                case SingleLineComment:
                     return;
 
                 #region Include
 
-                case eLexemType.Key_Include:
+                case Key_Include:
                     Lexer.Next();
-                    if (Current.Type != eLexemType.String)
+                    if (Current.Type != String)
                     {
                         Error("'include' operator requires a string as it's argument");
                         Lexer.SkipToEOL();
@@ -138,7 +141,7 @@ namespace Cordy
                 // ^{Parameter}^
                 // ^{Parameter}
                 //  {Parameter}
-                case eLexemType.CurlyBracketOpen:
+                case CurlyBracketOpen:
                     ParseParameter();
                     return;
                 #endregion
@@ -147,7 +150,7 @@ namespace Cordy
                 // ^[Attribute]^
                 // ^[Attribute]
                 //  [Attribute]
-                case eLexemType.SquareBracketOpen:
+                case SquareBracketOpen:
                     ParseAttribute();
                     return;
                 #endregion
@@ -155,7 +158,7 @@ namespace Cordy
                 #region Access Modifiers
 
                 //Access Level
-                case eLexemType.Key_AccessLevel:
+                case Key_AccessLevel:
                     if (lvl == eAccessLevel.Undefined)
                     {
                         lvl = (eAccessLevel)Enum.Parse(typeof(eAccessLevel), Current.Value, true);
@@ -166,7 +169,7 @@ namespace Cordy
                     return;
 
                 //Protected
-                case eLexemType.Key_Protected:
+                case Key_Protected:
                     if (isProtected)
                         Info($"Definition already have 'protected' modifier. Excess one ignored");
 
@@ -174,7 +177,7 @@ namespace Cordy
                     return;
 
                 //Static
-                case eLexemType.Key_Static:
+                case Key_Static:
                     if (isStatic)
                         Info($"Definition already have 'static' modifier. Excess one ignored");
 
@@ -182,7 +185,7 @@ namespace Cordy
                     return;
 
                 //Sealed
-                case eLexemType.Key_Sealed:
+                case Key_Sealed:
                     if (signatureParsed)
                     {
                         Warn($"'sealed ' modifier can't be applied to definition. Ignored");
@@ -200,7 +203,7 @@ namespace Cordy
                 #region File context
 
                 //File Context
-                case eLexemType.Key_FileContext:
+                case Key_FileContext:
                     if (signatureParsed)
                         throw new exTooManySignatures();
 
@@ -218,7 +221,7 @@ namespace Cordy
                 #region Event
 
                 // Handle event
-                case eLexemType.Key_Event:
+                case Key_Event:
                     if (!signatureParsed || context == eTypeContext.Enum)
                         throw new exBadDeclarationPos("Event");
 
@@ -230,7 +233,7 @@ namespace Cordy
                 #region Constructor
 
                 // Handle constructor
-                case eLexemType.Key_New:
+                case Key_New:
                     if (!signatureParsed || context == eTypeContext.Enum)
                         throw new exBadDeclarationPos("Constructor");
 
@@ -242,7 +245,7 @@ namespace Cordy
                 #region Indexer
 
                 // Handle indexer
-                case eLexemType.Key_This:
+                case Key_This:
                     if (!signatureParsed || context == eTypeContext.Enum)
                         throw new exBadDeclarationPos("Indexer");
 
@@ -252,14 +255,14 @@ namespace Cordy
                 #endregion
 
                 //Function, property or operator
-                case eLexemType.Identifier:
+                case Identifier:
                     handle:
                     switch (Lexer.Next().Type)
                     {
-                        case eLexemType.Indent: //TODO: Make type recognition more safe
-                        case eLexemType.MultiLineComment:
-                        case eLexemType.SingleLineComment:
-                        case eLexemType.PreprocessorDirective:
+                        case Indent: //TODO: Make type recognition more safe
+                        case MultiLineComment:
+                        case SingleLineComment:
+                        case PreprocessorDirective:
                             goto handle;
 
                         #region Property
@@ -267,9 +270,9 @@ namespace Cordy
                         //             id    'is'
                         //             id    '='
                         //Property     ^name  ^checking
-                        case eLexemType.NewLine: //TODO: Make NL skips
-                        case eLexemType.Key_Is:
-                        case eLexemType.Operator when Current.Value == "=":
+                        case NewLine: //TODO: Make NL skips
+                        case Key_Is:
+                        case Op_Assignment:
                             if (!signatureParsed || context == eTypeContext.Enum)
                                 throw new exBadDeclarationPos("Property");
 
@@ -280,7 +283,7 @@ namespace Cordy
                         #region Function
                         //              id      '('
                         // Functiion    ^ name   ^checking
-                        case eLexemType.RoundBracketOpen:
+                        case RoundBracketOpen:
                             if (!signatureParsed || context == eTypeContext.Enum)
                                 throw new exBadDeclarationPos("Function");
 
@@ -294,9 +297,9 @@ namespace Cordy
                         // id     id
                         // ^type   ^checking
                         // we got the type. If now is id -> use prev as type and current will be as name
-                        case eLexemType.CurlyBracketOpen:
-                        case eLexemType.Operator when Current.Value == ":":
-                        case eLexemType.Identifier:
+                        case CurlyBracketOpen:
+                        case Operator when Current.Value == ":":
+                        case Identifier:
                             if (handledType != null)
                                 throw new exBadDefinition($"have more than one type ('{handledType.ToString()}' and '{Current.Value}')");
 
@@ -308,12 +311,9 @@ namespace Cordy
 
                         #region Operator
                         //Handle operator definition
-                        case eLexemType.Operator:
+                        case Operator:
                             if (!signatureParsed || context == eTypeContext.Enum)
                                 throw new exBadDeclarationPos("Operator");
-
-                            if (Current.Value == "=")
-                                throw new exBadDefinition("Operator. Assignment operator can't be redefined");
 
                             Handle("Operator");
                             return;
@@ -326,7 +326,7 @@ namespace Cordy
                     // we are here because handled the type
                     // if now is id -> checking for next with same rules
                     // if not -> error
-                    if (Current.Type == eLexemType.Identifier)
+                    if (Current.Type == Identifier)
                         goto handle;
                     return;
 
@@ -352,7 +352,7 @@ namespace Cordy
             if (Current.Value == start)
                 Lexer.Next();
 
-            while (c > 0 && Current.Type != eLexemType.EOF)
+            while (c > 0 && Current.Type != EOF)
             {
                 if (Current.Value == start)
                     c++;
@@ -389,6 +389,7 @@ namespace Cordy
             Listener.ExitRule(m);
             if (m == null)
                 throw new exBadDefinition(member);
+            //Generator.Emit(m);
             Listener.Listen();
             ClearConsumables();
         }
@@ -439,7 +440,7 @@ namespace Cordy
         {
             var code = Current.Value;
             Lexer.Next();
-            var args = ParseFunctionArgs(eLexemType.RoundBracketOpen, eLexemType.RoundBracketClose);
+            var args = ParseFunctionArgs(RoundBracketOpen, RoundBracketClose);
             var body = ParseBlock();
             var def = new OperatorDef(handledType ?? Void, args, code);
             return new Operator(def, body);
@@ -448,7 +449,7 @@ namespace Cordy
         public Function ParseFunction()
         {
             var name = Lexer.Prev.Value;
-            var args = ParseFunctionArgs(eLexemType.RoundBracketOpen, eLexemType.RoundBracketClose);
+            var args = ParseFunctionArgs(RoundBracketOpen, RoundBracketClose);
             var body = ParseBlock();
             var def = new FunctionDef(lvl, isProtected, isStatic, handledType, name, args);
             return new Function(def, body);
@@ -472,27 +473,27 @@ namespace Cordy
             check:
             switch (Current.Type)
             {
-                case eLexemType.Operator when Current.Value == ":":
+                case Operator when Current.Value == ":":
                     Lexer.Next();
                     settings.Add(ParsePrimary());
                     goto check;
-                case eLexemType.CurlyBracketOpen:
+                case CurlyBracketOpen:
                     Lexer.Next();
                     r++;
                     template.AddRange(ParseTypeSequence(ref r));
                     goto check;
 
-                case eLexemType.Indent:
-                case eLexemType.NewLine:
-                case eLexemType.MultiLineComment:
-                case eLexemType.SingleLineComment:
-                case eLexemType.PreprocessorDirective:
+                case Indent:
+                case NewLine:
+                case MultiLineComment:
+                case SingleLineComment:
+                case PreprocessorDirective:
                     Lexer.Next();
                     goto check;
 
-                case eLexemType.Identifier:
-                case eLexemType.Operator:
-                case eLexemType.CurlyBracketClose:
+                case Identifier:
+                case Operator:
+                case CurlyBracketClose:
                     return new TypeNode(name, settings, template);
                 default:
                     Error($"Unexpected token '{Current.Value}'");
@@ -507,11 +508,11 @@ namespace Cordy
             {
                 switch (Current.Type)
                 {
-                    case eLexemType.CurlyBracketClose:
+                    case CurlyBracketClose:
                         r--;
                         Lexer.Next();
                         return o;
-                    case eLexemType.Operator when Current.Value == ",":
+                    case Operator when Current.Value == ",":
                         Lexer.Next();
                         break;
                 }
@@ -532,19 +533,26 @@ namespace Cordy
         {
             while (true)
             {
-                if (Current.Type != eLexemType.Operator)
-                    return LHS;
-                var curOper = Compiler.GetOperator(Current.Value);
-                if (curOper == null)
+                ExprOperator curOper = null;
+                if (Current.Type != Op_Assignment)
                 {
-                    Error($"Operator '{Current.Value}' not defined");
-                    return null;
+                    if (Current.Type != Operator)
+                        return LHS;
+                    curOper = Compiler.GetOperator(Current.Value);
+                    if (curOper == null)
+                    {
+                        Error($"Operator '{Current.Value}' not defined");
+                        return null;
+                    }
+                    // if this is a binop at least as tightly as the current binop,
+                    // consume it, otherwise we are done
+                    if (curOper.Precedence < exprPrec)
+                        return LHS;
                 }
-                // if this is a binop at least as tightly as the current binop,
-                // consume it, otherwise we are done
-                if (curOper.Precedence < exprPrec)
-                    return LHS;
-
+                else
+                {
+                    curOper = new ExprOperator();
+                }
                 Lexer.Next();
 
                 // Try to consume any possible expression
@@ -554,7 +562,7 @@ namespace Cordy
 
                 //if curOper binds less tightly with rhs than the operator after RHS,
                 //let the pending operator take rhs as its LHS
-                if (Current.Type == eLexemType.Operator)
+                if (Current.Type == Operator)
                 {
                     //TODO: Indented line skips
                     var nextOper = Compiler.GetOperator(Current.Value);
@@ -574,7 +582,7 @@ namespace Cordy
 
         private ExprNode ParseUnaryPrefix()
         {
-            if (Current.Type != eLexemType.Operator)
+            if (Current.Type != Operator)
                 return ParsePrimary();
 
             Lexer.Next();
@@ -591,7 +599,11 @@ namespace Cordy
 
         private ExprNode ParseUnaryPostfix(ExprNode v) => throw new NotImplementedException();
 
-        private ExprNode ParseAssignment(string name) => throw new NotImplementedException();
+        private ExprNode ParseAssignment(string name)
+        {
+            var var = (ExprNode)new VarNode(name);
+            return ParseBinOpRHS(0, ref var);
+        }
 
         #endregion
 
@@ -617,7 +629,7 @@ namespace Cordy
             Lexer.Next();
             var args = new List<ExprNode>();
 
-            if (Current.Type != eLexemType.RoundBracketClose) //if we have args
+            if (Current.Type != RoundBracketClose) //if we have args
             {
                 while (true)
                 {
@@ -627,7 +639,7 @@ namespace Cordy
                     else
                         return null;
 
-                    if (Current.Type == eLexemType.RoundBracketClose) // if we got closing bracket -> we are done
+                    if (Current.Type == RoundBracketClose) // if we got closing bracket -> we are done
                         break;
 
                     if (Current.Value != ",") // if we got not separator -> error
@@ -636,7 +648,7 @@ namespace Cordy
                         return null;
                     }
                     Lexer.Next(); // if comma -> getting next element
-                    if (Current.Type == eLexemType.RoundBracketClose)
+                    if (Current.Type == RoundBracketClose)
                     {
                         Error("Unexpected ')' after ','. Expected expression");
                     }
@@ -682,18 +694,18 @@ namespace Cordy
                     return null;
 
                 //parenexpr
-                case eLexemType.CurlyBracketOpen:
+                case RoundBracketOpen:
                     return ParseParenExpr();
 
                 //identifierexpr
-                case eLexemType.Identifier:
+                case Identifier:
                     return ParseIdentifierExpr();
 
                 //intexpr
-                case eLexemType.IntegerBinary:
-                case eLexemType.IntegerOctal:
-                case eLexemType.IntegerDecimal:
-                case eLexemType.IntegerHexadecimal:
+                case IntegerBinary:
+                case IntegerOctal:
+                case IntegerDecimal:
+                case IntegerHexadecimal:
                     return ParseIntExpr();
             }
         }
@@ -713,7 +725,7 @@ namespace Cordy
             }
 
             Lexer.Next(); // eat ')'
-            if (Current.Type == eLexemType.Operator) // parse unary postfix operator
+            if (Current.Type == Operator && Compiler.GetOperator(Current.Value).Kind == "postfix") // parse unary postfix operator
                 return ParseUnaryPostfix(v);
 
             return v;
@@ -729,30 +741,30 @@ namespace Cordy
             [•] Call Constructor ::=    'new'   '(' expression* ')'
             \*/
 
-            if (Current.Type == eLexemType.Key_New)
+            if (Current.Type == Key_New)
                 return ParseConstructorCall();
 
             Lexer.Next();
             switch (Current.Type)
             {
-                case eLexemType.RoundBracketOpen:
+                case RoundBracketOpen:
                     // Call Constructor
                     // Call Function
                     return ParseFunctionCall(Lexer.Prev.Value);
 
                 // Call Indexer
-                case eLexemType.SquareBracketOpen:
+                case SquareBracketOpen:
                     return ParseIndexerCall(Lexer.Prev.Value);
 
                 // Assign Variable
-                case eLexemType.Operator when Current.Value == "=":
+                case Op_Assignment:
                     return ParseAssignment(Lexer.Prev.Value);
                 default:
                     break;
             }
 
             // Get Variable
-            if (Lexer.Prev.Type != eLexemType.Identifier)//if something went wrong
+            if (Lexer.Prev.Type != Identifier)//if something went wrong | TODO: make "useless" parts skip
             {
                 Error($"Unexpected token {Lexer.Prev.Value}");
                 return null;
@@ -810,7 +822,7 @@ namespace Cordy
             \*/
 
             //TODO: Make saving to list
-            if (Current.Type != eLexemType.Indent) // no indent = no body
+            if (Current.Type != Indent) // no indent = no body
             {
                 Lexer.SkipToEmptyLine();
                 return null;
@@ -824,7 +836,10 @@ namespace Cordy
             while (indent == minIndent)
                 switch (Current.Type)
                 {
-                    case eLexemType.Indent:
+                    case NewLine:
+                        Lexer.Next();
+                        continue;
+                    case Indent:
                         indent = Current.Value.Length;
                         if (indent > minIndent)
                         {
@@ -838,19 +853,35 @@ namespace Cordy
                         Lexer.Next();
                         continue;
 
-                    case eLexemType.Identifier:
+                    case Identifier:
                         var i = Lexer.I;
+                        Lexer.Next();
                         var type = ParseType();
 
                         // InitVariableExpr
                         if (type != null)
                         {
-                            if (Current.Type != eLexemType.Identifier)
+                            if (Current.Type != Identifier)
                             {
                                 Error($"Unexpected token '{Current.Value}'");
                                 return null;
                             }
-                            exprs.Add(ParseAssignment(type));
+                            var name = Current.Value;
+                            switch (Lexer.Next().Type)
+                            {
+                                case Op_Assignment:
+                                    exprs.Add(ParseAssignment(type, name));
+                                    break;
+                                case Operator:
+                                    exprs.Add(ParseExpression());
+                                    break;
+                                default:
+                                    if (type == null)
+                                        exprs.Add(ParseIdentifierExpr());
+                                    else
+                                        exprs.Add(new VarDefinition(name, type));
+                                    break;
+                            }
                             continue;
                         }
 
@@ -860,71 +891,71 @@ namespace Cordy
                         continue;
 
                     // ClearVariable
-                    case eLexemType.Key_New:
+                    case Key_New:
                         exprs.Add(ParseConstructorCall());
                         continue;
 
                     // ParenExpr
-                    case eLexemType.RoundBracketOpen:
+                    case RoundBracketOpen:
                         exprs.Add(ParseParenExpr());
                         continue;
 
                     //PrefixUnaryExpr
-                    case eLexemType.Operator:
+                    case Operator:
                         exprs.Add(ParseUnaryPrefix());
                         continue;
 
                     //Return
-                    case eLexemType.Key_Return:
+                    case Key_Return:
                         if (exprs.Count > 0)
                             blocks.Add(new ExprBlock(exprs, indent));
                         blocks.Add(ParseReturn());
                         return new CodeBlock(blocks, indent);
 
                     //Branch
-                    case eLexemType.Key_If:
+                    case Key_If:
                         blocks.Add(new ExprBlock(exprs, indent));
                         exprs = new List<ExprNode>();
                         blocks.Add(ParseBranch());
                         continue;
 
                     //For loop
-                    case eLexemType.Key_For:
+                    case Key_For:
                         blocks.Add(new ExprBlock(exprs, indent));
                         exprs = new List<ExprNode>();
                         blocks.Add(ParseForLoop());
                         continue;
 
                     //Foreach loop
-                    case eLexemType.Key_Foreach:
+                    case Key_Foreach:
                         blocks.Add(new ExprBlock(exprs, indent));
                         exprs = new List<ExprNode>();
                         blocks.Add(ParseForeachLoop());
                         continue;
 
                     //While loop
-                    case eLexemType.Key_While:
+                    case Key_While:
                         blocks.Add(new ExprBlock(exprs, indent));
                         exprs = new List<ExprNode>();
                         blocks.Add(ParseWhileLoop());
                         continue;
 
                     //Switch
-                    case eLexemType.Key_Switch:
+                    case Key_Switch:
                         blocks.Add(new ExprBlock(exprs, indent));
                         exprs = new List<ExprNode>();
                         blocks.Add(ParseSwitch());
                         continue;
 
                     //Do While Loop
-                    case eLexemType.Key_Do:
+                    case Key_Do:
                         blocks.Add(new ExprBlock(exprs, indent));
                         exprs = new List<ExprNode>();
                         blocks.Add(ParseDoWhileLoop());
                         continue;
 
                     //Try-Catch-Finally
-                    case eLexemType.Key_Try:
+                    case Key_Try:
                         blocks.Add(new ExprBlock(exprs, indent));
                         exprs = new List<ExprNode>();
                         blocks.Add(ParseTryCatchFinally());
@@ -947,8 +978,6 @@ namespace Cordy
 
         private CodeBlock ParseBranch() => throw new NotImplementedException();
 
-        private ExprNode ParseAssignment(TypeNode t) => throw new NotImplementedException();
-
         private CodeBlock ParseReturn()
         {
             Lexer.Next();
@@ -956,6 +985,12 @@ namespace Cordy
         }
 
         #endregion
+
+        private ExprNode ParseAssignment(TypeNode t, string name)
+        {
+            var var = (ExprNode)new VarDefinition(name, t);
+            return ParseBinOpRHS(0, ref var);
+        }
 
         #endregion
     }
