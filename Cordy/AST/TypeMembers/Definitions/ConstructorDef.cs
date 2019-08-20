@@ -6,8 +6,6 @@ namespace Cordy.AST
     {
         public ConstructorDef(eAccessLevel lvl, bool isProtected, bool isStatic, TypeNode type, List<VarDefinition> args)
             : base(lvl, isProtected, isStatic, type, args, null)
-            => Kind = eNodeKind.Constructor;
-
-        public override eNodeKind Kind { get; protected set; }
+        { }
     }
 }

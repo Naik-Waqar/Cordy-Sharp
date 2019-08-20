@@ -1,5 +1,4 @@
-﻿using Cordy.Codegen;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Cordy.AST
 {
@@ -23,13 +22,10 @@ namespace Cordy.AST
             MetaParts["Callee"] = Name;
             MetaParts["Modules"] = "Int"; //TODO: Make required module evaluation
 
-            Kind = eNodeKind.Operator;
+
         }
 
-        public override eNodeKind Kind { get; protected set; }
 
-        protected internal override BasicNode Accept(Visitor visitor)
-            => visitor.VisitOperatorDefinition(this);
 
         #region Parameters
 

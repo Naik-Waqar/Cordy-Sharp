@@ -1,5 +1,4 @@
-﻿using Cordy.Codegen;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Cordy.AST
 {
@@ -21,10 +20,10 @@ namespace Cordy.AST
 
         public List<ExprNode> Settings { get; }
 
-        public override eNodeKind Kind { get; protected set; }
 
-        protected internal override BasicNode Accept(Visitor visitor)
-            => visitor.VisitType(this);
+
+        //        protected internal override BasicNode Accept(Visitor visitor)
+        //            => visitor.VisitType(this);
 
         public override string ToString()
         {

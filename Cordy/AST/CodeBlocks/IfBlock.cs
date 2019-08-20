@@ -1,5 +1,4 @@
-﻿using Cordy.Codegen;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Cordy.AST
 {
@@ -11,10 +10,5 @@ namespace Cordy.AST
         //Then block is named as child!
 
         public Expression Condition { get; }
-
-        public override eNodeKind Kind { get; protected set; }
-
-        protected internal override BasicNode Accept(Visitor visitor)
-            => visitor.VisitIfBlock(this);
     }
 }

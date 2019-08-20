@@ -1,6 +1,4 @@
-﻿using Cordy.Codegen;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Collections.Generic;
 
 namespace Cordy.AST
 {
@@ -13,17 +11,11 @@ namespace Cordy.AST
         {
             Args = args;
             Operator = oper;
-            Kind = eNodeKind.Expression;
         }
 
         public ExprOperator Operator { get; }
 
         public List<ExprNode> Args { get; }
 
-        public override eNodeKind Kind { get; protected set; }
-
-        [DebuggerStepThrough]
-        protected internal override BasicNode Accept(Visitor visitor)
-            => visitor.VisitExpression(this);
     }
 }

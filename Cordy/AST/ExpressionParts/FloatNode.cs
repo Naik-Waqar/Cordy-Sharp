@@ -1,25 +1,14 @@
-﻿using Cordy.Codegen;
-using System;
+﻿using System;
 
 namespace Cordy.AST
 {
     /// <summary>
     /// Represents a float literal
     /// </summary>
-    public class FloatNode : ExprNode, iValue<double>
+    public class FloatNode : ExprNode
     {
-        public FloatNode(string rep)
-        {
-            Value = Convert.ToDouble(rep.Replace(",", "."));
-            Kind = eNodeKind.Float;
-        }
+        public FloatNode(string rep) => Value = Convert.ToDouble(rep.Replace(",", "."));
 
         public double Value { get; }
-
-        public override eNodeKind Kind { get; protected set; }
-
-        protected internal override BasicNode Accept(Visitor visitor)
-            => visitor.VisitFloat(this);
-
     }
 }

@@ -1,5 +1,4 @@
-﻿using Cordy.Codegen;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Cordy.AST
 {
@@ -12,16 +11,14 @@ namespace Cordy.AST
         {
             Callee = callee;
             Args = args;
-            Kind = eNodeKind.Function;
+
         }
 
-        public override eNodeKind Kind { get; protected set; }
+
 
         public string Callee { get; }
 
         public List<ExprNode> Args { get; }
 
-        protected internal override BasicNode Accept(Visitor visitor)
-            => visitor.VisitCall(this);
     }
 }

@@ -1,11 +1,9 @@
 ﻿using Llvm.NET;
 using Llvm.NET.JIT;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace Cordy.Codegen
 {
@@ -23,13 +21,13 @@ namespace Cordy.Codegen
         public delegate void voidCallbackHandler();
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate object? CallbackHandler();
+        public delegate object CallbackHandler();
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void voidArgumentedCallbackHandler(object[] args);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate object? ArgumentedCallbackHandler(object[] args);
+        public delegate object ArgumentedCallbackHandler(object[] args);
 
         [SuppressMessage("Design", "CA1031:Do not catch general exception types",
             Justification = "Native callback *MUST NOT* surface managed exceptions")]

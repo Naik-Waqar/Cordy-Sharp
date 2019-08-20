@@ -4,8 +4,8 @@
     {
         public Indexer(IndexerDef def, BasicNode body)
             : base(def, body)
-            => Kind = eNodeKind.Indexer;
+            {}
 
-        public override eNodeKind Kind { get; protected set; }
+        
     }
 }

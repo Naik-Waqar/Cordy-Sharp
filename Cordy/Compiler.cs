@@ -180,7 +180,7 @@ namespace Cordy
 
             // Set up the optimizer pipeline.  Start with registering info about how the
             // target lays out data structures.
-            
+
             if (false)
             {
                 pm.AddBasicAliasAnalysisPass()
@@ -195,8 +195,11 @@ namespace Cordy
             return pm;
         }
 
+
+
         internal static void Build(CordyType type, Context context)
         {
+            var JIT = new JIT();
             var module = context.CreateBitcodeModule(type.Name, (SourceLanguage)0xA000, type.FilePath, "C#-based Cordy Compiler");
             Modules.Add(module);
             type.Module = module;
@@ -205,11 +208,11 @@ namespace Cordy
 
             var passManager = InitPassManager(module);
 
-            var listener = new Listener(passManager, new Visitor(module, builder, context, type.Name));
-
+            //var listener = new Listener(passManager, new Visitor(module, builder, context, type.Name));
+            var generator = new Generator(module, builder, context, JIT, type.Name);
             var lexer = new Lexer();
             lexer.Prepare(type); //tokenizing code
-            var parser = new Parser(type, lexer, listener);
+            var parser = new Parser(type, lexer, generator);
 
             parser.Parse();
             Dump(module);

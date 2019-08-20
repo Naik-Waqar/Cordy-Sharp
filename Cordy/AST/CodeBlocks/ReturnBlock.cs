@@ -1,5 +1,4 @@
 ﻿using Cordy.AST;
-using Cordy.Codegen;
 using System.Collections.Generic;
 
 namespace Cordy
@@ -10,8 +9,5 @@ namespace Cordy
             : base(new List<CodeBlock> { new ExprBlock(new List<ExprNode> { expr }, indent) }, indent)
         {
         }
-
-        protected internal override BasicNode Accept(Visitor visitor)
-            => visitor.VisitReturnBlock(this);
     }
 }

@@ -1,17 +1,16 @@
-﻿using Cordy.Codegen;
-using System;
+﻿using System;
 
 namespace Cordy.AST
 {
     /// <summary>
     /// Represents an integer literal
     /// </summary>
-    public sealed class IntegerNode : ExprNode, iValue<ulong>, iSignedValue
+    public sealed class IntegerNode : ExprNode
     {
         public IntegerNode(string rep)
         {
-            Signed = rep.StartsWith('-');
-            if (Signed)
+            var signed = rep.StartsWith('-');
+            if (signed)
                 rep.TrimStart('-');
             Value = Convert.ToUInt64(rep.Replace("_", "").ToLower(), rep[0] switch
             {
@@ -19,18 +18,11 @@ namespace Cordy.AST
                 'o' => 8,
                 'x' => 16,
                 _ => 10,
-            }) | (Signed ? (ulong)1 << 63 : 0);
-            Kind = eNodeKind.Integer;
+            }) | (signed ? (ulong)1 << 63 : 0);
+
         }
 
         public ulong Value { get; }
-
-        public bool Signed { get; }
-
-        public override eNodeKind Kind { get; protected set; }
-
-        protected internal override BasicNode Accept(Visitor visitor)
-            => visitor.VisitInteger(this);
 
         public override string ToString()
             => Value.ToString();

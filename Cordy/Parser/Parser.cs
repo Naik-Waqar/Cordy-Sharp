@@ -14,7 +14,7 @@ namespace Cordy
         #region "Bridge"
 
         private Lexer Lexer;
-        private Listener Listener;
+        //private Listener Listener;
         private CordyType Type;
         private Generator Generator;
 
@@ -24,11 +24,11 @@ namespace Cordy
 
         #region Constructors
 
-        internal Parser(CordyType type, Lexer lexer, Listener listener)
+        internal Parser(CordyType type, Lexer lexer, Generator generator)
         {
             Type = type;
             Lexer = lexer;
-            Listener = listener;
+            Generator = generator;
         }
 
         public Parser(Lexer lexer) => Lexer = lexer;
@@ -383,14 +383,14 @@ namespace Cordy
 
         public void Handle(string member)
         {
-            Listener.EnterRule($"Handle{member}Definition");
+            //Listener.EnterRule($"Handle{member}Definition");
             var m = (DefinedNode)typeof(Parser).GetMethod("Parse" + member).Invoke(this, null);
             m.Definition.ApplyParameters(Parameters);
-            Listener.ExitRule(m);
+            //Listener.ExitRule(m);
             if (m == null)
                 throw new exBadDefinition(member);
-            //Generator.Emit(m);
-            Listener.Listen();
+            Generator.Emit(m);
+            //Listener.Listen();
             ClearConsumables();
         }
 
@@ -725,7 +725,7 @@ namespace Cordy
             }
 
             Lexer.Next(); // eat ')'
-            if (Current.Type == Operator && Compiler.GetOperator(Current.Value).Kind == "postfix") // parse unary postfix operator
+            if (Current.Type == Operator && Compiler.GetOperator(Current.Value).Kind == "postfix")
                 return ParseUnaryPostfix(v);
 
             return v;

@@ -22,10 +22,7 @@ namespace Cordy.AST
         /// <summary>
         /// Used only for assignment operator
         /// </summary>
-        public ExprOperator()
-        {
-            Kind = "assign";
-        }
+        public ExprOperator() => Kind = "assign";
 
         public string Representation { get; }
 
